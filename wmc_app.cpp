@@ -141,11 +141,12 @@ class initUdpConnect : public wmcApp
         }
         else
         {
+            transit<initUdpConnectFail>();
         }
     };
 
     /**
-     * Handle the respons eon the status message.
+     * Handle the response on the status message.
      */
     void react(updateEvent50msec const&) override
     {
@@ -186,7 +187,7 @@ class initBroadcast : public wmcApp
     };
 
     /**
-     * Continu to next state.
+     * Continue to next state.
      */
     void react(updateEvent50msec const&) override { transit<initStatusGet>(); };
 
