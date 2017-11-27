@@ -18,7 +18,6 @@ class initUdpConnectFail;
 class setUpWifiFail;
 class initBroadcast;
 class initStatusGet;
-class initVersionInfoGet;
 class initLocInfoGet;
 class powerOff;
 class powerOn;
