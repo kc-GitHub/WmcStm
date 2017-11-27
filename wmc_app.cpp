@@ -1,9 +1,18 @@
+/***********************************************************************************************************************
+   @file   wmc_app.cpp
+   @brief  Main application of WifiManualControl (WMC).
+ **********************************************************************************************************************/
+
+/***********************************************************************************************************************
+   I N C L U D E S
+ **********************************************************************************************************************/
+#include "wmc_app.h"
+#include "fsmlist.hpp"
 #include <tinyfsm.hpp>
 
-#include "fsmlist.hpp"
-#include "wmc_app.h"
-
-// Forward declarations
+/***********************************************************************************************************************
+   F O R W A R D  D E C L A R A T I O N S
+ **********************************************************************************************************************/
 class initUdpConnect;
 class initUdpConnectFail;
 class setUpWifiFail;
@@ -20,10 +29,40 @@ class menuLocFunctionsChange;
 class menuLocDelete;
 
 /***********************************************************************************************************************
+   D A T A   D E C L A R A T I O N S (exported, local)
+ **********************************************************************************************************************/
+
+/* Init variables. */
+WmcTft wmcApp::m_wmcTft;
+LocLib wmcApp::m_locLib;
+WiFiUDP wmcApp::m_WifiUdp;
+Z21Slave wmcApp::m_z21Slave;
+bool wmcApp::m_locSelection;
+bool wmcApp::m_TrackPower = false;
+byte wmcApp::WmcPacketBuffer[40];
+uint16_t wmcApp::m_ConnectCnt       = 0;
+uint16_t wmcApp::m_UdpLocalPort     = 21105;
+uint16_t wmcApp::m_locAddressAdd    = 1;
+uint8_t wmcApp::m_locFunctionAdd    = 0;
+uint8_t wmcApp::m_locFunctionChange = 0;
+uint16_t wmcApp::m_locAddressDelete = 0;
+uint16_t wmcApp::m_locAddressChange = 0;
+uint8_t wmcApp::m_locFunctionAssignment[5];
+Z21Slave::locInfo wmcApp::WmcLocInfoControl;
+Z21Slave::locInfo* wmcApp::WmcLocInfoReceived = NULL;
+
+/***********************************************************************************************************************
+  F U N C T I O N S
+ **********************************************************************************************************************/
+
+/***********************************************************************************************************************
  * Init the wifi connection.
  */
 class setUpWifi : public wmcApp
 {
+    /**
+     * Init modules and start connection to wifi network.
+     */
     void entry() override
     {
         m_ConnectCnt = 0;
@@ -33,7 +72,7 @@ class setUpWifi : public wmcApp
         m_wmcTft.UpdateStatus("Connecting to Wifi", true, WmcTft::color_yellow);
 
         WiFi.mode(WIFI_STA);
-        WiFi.begin("Robert2", "DAFTRUCK85DAF");
+        WiFi.begin("SSID", "PASSWORD");
     };
 
     /**
@@ -79,6 +118,9 @@ class setUpWifiFail : public wmcApp
  */
 class initUdpConnect : public wmcApp
 {
+    /**
+     * Start UDP connection.
+     */
     void entry()
     {
         m_ConnectCnt = 0;
@@ -86,9 +128,11 @@ class initUdpConnect : public wmcApp
         m_WifiUdp.begin(m_UdpLocalPort);
     }
 
+    /**
+     * No response, retry.
+     */
     void react(updateEvent500msec const&) override
     {
-        /* No response, retry. */
         m_ConnectCnt++;
 
         if (m_ConnectCnt < 120)
@@ -101,6 +145,9 @@ class initUdpConnect : public wmcApp
         }
     };
 
+    /**
+     * Handle the respons eon the status message.
+     */
     void react(updateEvent50msec const&) override
     {
         switch (WmcCheckForDataRx())
@@ -111,6 +158,9 @@ class initUdpConnect : public wmcApp
         }
     };
 
+    /**
+     * Override update during init.
+     */
     void react(updateEvent3sec const&) override{};
 };
 
@@ -127,14 +177,24 @@ class initUdpConnectFail : public wmcApp
  */
 class initBroadcast : public wmcApp
 {
+    /**
+     * Transmit broadcast info.
+     */
     void entry() override
     {
-        /* Transmit broadcast info. */
         m_z21Slave.LanSetBroadCastFlags(1);
         WmcCheckForDataTx();
     };
 
-    void react(updateEvent3sec const&) override { transit<initStatusGet>(); };
+    /**
+     * Continu to next state.
+     */
+    void react(updateEvent50msec const&) override { transit<initStatusGet>(); };
+
+    /**
+     * Override update during init.
+     */
+    void react(updateEvent3sec const&) override{};
 };
 
 /***********************************************************************************************************************
@@ -142,13 +202,18 @@ class initBroadcast : public wmcApp
  */
 class initStatusGet : public wmcApp
 {
+    /**
+     * Get the status.
+     */
     void entry() override
     {
-        /* Get status of Z21. */
         m_z21Slave.LanGetStatus();
         WmcCheckForDataTx();
     };
 
+    /**
+     * Check response of status request.
+     */
     void react(updateEvent50msec const&) override
     {
         switch (WmcCheckForDataRx())
@@ -165,10 +230,15 @@ class initStatusGet : public wmcApp
         }
     };
 
-    void react(updateEvent3sec const&) override
-    { /* No response, retry. */
-        m_z21Slave.LanGetStatus();
-    };
+    /**
+     * No response, retry.
+     */
+    void react(updateEvent500msec const&) override { m_z21Slave.LanGetStatus(); };
+
+    /**
+     * Override update during init.
+     */
+    void react(updateEvent3sec const&) override{};
 };
 
 /***********************************************************************************************************************
@@ -176,12 +246,18 @@ class initStatusGet : public wmcApp
  */
 class initLocInfoGet : public wmcApp
 {
+    /**
+     * Request loc info.
+     */
     void entry() override
-    { /* Get actual loc info. */
+    {
         m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
         WmcCheckForDataTx();
     };
 
+    /**
+     * Handle response of loc request and if loc data received setup screen.
+     */
     void react(updateEvent50msec const&) override
     {
         switch (WmcCheckForDataRx())
@@ -203,11 +279,19 @@ class initLocInfoGet : public wmcApp
         }
     };
 
-    void react(updateEvent3sec const&) override
-    { /* No response, retry. */
+    /**
+     * No response, retry.
+     */
+    void react(updateEvent500msec const&) override
+    {
         m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
         WmcCheckForDataTx();
-    };
+    }
+
+    /**
+     * Override update during init.
+     */
+    void react(updateEvent3sec const&) override{};
 };
 
 /***********************************************************************************************************************
@@ -216,6 +300,10 @@ class initLocInfoGet : public wmcApp
 class powerOff : public wmcApp
 {
     uint8_t Index = 0;
+
+    /**
+     * Update status row.
+     */
     void entry() override
     {
         m_locSelection = false;
@@ -223,6 +311,9 @@ class powerOff : public wmcApp
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     }
 
+    /**
+     * Handle received data.
+     */
     void react(updateEvent50msec const&) override
     {
         switch (WmcCheckForDataRx())
@@ -236,12 +327,18 @@ class powerOff : public wmcApp
         }
     }
 
+    /**
+     * Keep alive.
+     */
     void react(updateEvent3sec const&) override
     {
         m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
         WmcCheckForDataTx();
     }
 
+    /**
+     * Check button event data.
+     */
     void react(pushButtonsEvent const& e) override
     {
         switch (e.Button)
@@ -255,6 +352,9 @@ class powerOff : public wmcApp
         }
     }
 
+    /**
+     * Check pulse switch event data.
+     */
     void react(pulseSwitchEvent const& e) override
     {
         switch (e.Status)
@@ -282,6 +382,9 @@ class powerOff : public wmcApp
  */
 class powerOn : public wmcApp
 {
+    /**
+     * Update status row.
+     */
     void entry() override
     {
         m_locSelection = false;
@@ -289,6 +392,9 @@ class powerOn : public wmcApp
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
+    /**
+     * Handle received data.
+     */
     void react(updateEvent50msec const&) override
     {
         switch (WmcCheckForDataRx())
@@ -302,12 +408,18 @@ class powerOn : public wmcApp
         }
     };
 
+    /**
+     * Keep alive.
+     */
     void react(updateEvent3sec const&) override
     {
         m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
         WmcCheckForDataTx();
     }
 
+    /**
+     * Handle pulse switch events.
+     */
     void react(pulseSwitchEvent const& e) override
     {
         switch (e.Status)
@@ -347,6 +459,9 @@ class powerOn : public wmcApp
         }
     };
 
+    /**
+     * Handle function button events.
+     */
     void react(pushButtonsEvent const& e) override
     {
         uint8_t Function = 0;
@@ -384,12 +499,14 @@ class powerOn : public wmcApp
  */
 class mainMenu : public wmcApp
 {
-    void entry() override
-    {
-        /* Show menu on screen. */
-        m_wmcTft.ShowMenu();
-    };
+    /**
+     * Show menu on screen.
+     */
+    void entry() override { m_wmcTft.ShowMenu(); };
 
+    /**
+     * Handle switch events.
+     */
     void react(pushButtonsEvent const& e) override
     {
         /* Handle menu request. */
@@ -410,6 +527,9 @@ class mainMenu : public wmcApp
  */
 class menuLocAdd : public wmcApp
 {
+    /**
+     * Show loc menu add screen.
+     */
     void entry() override
     {
         m_locAddressAdd = m_locLib.GetActualLocAddress();
@@ -422,11 +542,15 @@ class menuLocAdd : public wmcApp
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
+    /**
+     * Handle pulse switch events.
+     */
     void react(pulseSwitchEvent const& e) override
     {
         switch (e.Status)
         {
         case turn:
+            /* Increase or decrease loc address to be added. */
             if (e.Delta > 0)
             {
                 m_locAddressAdd++;
@@ -443,6 +567,7 @@ class menuLocAdd : public wmcApp
         case pushturn: break;
         case pushedNormal:
         case pushedlong:
+            /* If loc is not present goto add functions else red address indicating loc already present. */
             if (m_locLib.CheckLoc(m_locAddressAdd) != 255)
             {
                 m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_red);
@@ -456,6 +581,9 @@ class menuLocAdd : public wmcApp
         }
     };
 
+    /**
+     * Handle button events for easier / faster increase of address and reset of address.
+     */
     void react(pushButtonsEvent const& e) override
     {
         bool updateScreen = true;
@@ -487,6 +615,9 @@ class menuLocAdd : public wmcApp
  */
 class menuLocFunctionsAdd : public wmcApp
 {
+    /**
+     * Show function add screen.
+     */
     void entry() override
     {
         uint8_t Index;
@@ -502,11 +633,15 @@ class menuLocFunctionsAdd : public wmcApp
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
+    /**
+     * Handle pulse switch events.
+     */
     void react(pulseSwitchEvent const& e) override
     {
         switch (e.Status)
         {
         case turn:
+            /* ncrease of decrease the function. */
             if (e.Delta > 0)
             {
                 m_locFunctionAdd++;
@@ -540,6 +675,9 @@ class menuLocFunctionsAdd : public wmcApp
         }
     };
 
+    /**
+     * Handle push button events.
+     */
     void react(pushButtonsEvent const& e) override
     {
         switch (e.Button)
@@ -573,6 +711,9 @@ class menuLocFunctionsAdd : public wmcApp
  */
 class menuLocFunctionsChange : public wmcApp
 {
+    /**
+     * Show change function screen.
+     */
     void entry() override
     {
         uint8_t Index;
@@ -593,6 +734,9 @@ class menuLocFunctionsChange : public wmcApp
         }
     }
 
+    /**
+     * Handle pulse switch events.
+     */
     void react(pulseSwitchEvent const& e) override
     {
         uint8_t Index = 0;
@@ -600,6 +744,7 @@ class menuLocFunctionsChange : public wmcApp
         switch (e.Status)
         {
         case turn:
+            /* Change function. */
             if (e.Delta > 0)
             {
                 m_locFunctionChange++;
@@ -623,6 +768,7 @@ class menuLocFunctionsChange : public wmcApp
             }
             break;
         case pushturn:
+            /* Select another loc and update function data of newly selected loc. */
             m_locAddressChange = m_locLib.GetNextLoc(e.Delta);
             m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
 
@@ -636,6 +782,7 @@ class menuLocFunctionsChange : public wmcApp
             break;
         case pushedNormal:
         case pushedlong:
+            /* Store changed data and yellow text indicating data is stored. */
             m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, LocLib::storeChange);
             m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_yellow);
             break;
@@ -643,6 +790,9 @@ class menuLocFunctionsChange : public wmcApp
         }
     };
 
+    /**
+     * Handle push button events.
+     */
     void react(pushButtonsEvent const& e) override
     {
         switch (e.Button)
@@ -676,6 +826,9 @@ class menuLocFunctionsChange : public wmcApp
  */
 class menuLocDelete : public wmcApp
 {
+    /**
+     * Show delete screen.
+     */
     void entry() override
     {
         m_wmcTft.Clear();
@@ -686,17 +839,22 @@ class menuLocDelete : public wmcApp
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     }
 
+    /**
+     * Handle pulse switch events.
+     */
     void react(pulseSwitchEvent const& e) override
     {
         switch (e.Status)
         {
         case turn:
+            /* Select loc to be deleted. */
             m_locAddressDelete = m_locLib.GetNextLoc(e.Delta);
             m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
             m_wmcTft.ShowlocAddress(m_locAddressDelete, WmcTft::color_green);
             break;
         case pushedNormal:
         case pushedlong:
+            /* Remove loc. */
             m_locLib.RemoveLoc(m_locAddressDelete);
             m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
             m_locAddressDelete = m_locLib.GetActualLocAddress();
@@ -706,6 +864,9 @@ class menuLocDelete : public wmcApp
         }
     }
 
+    /**
+     * Push button event, just go back to main menu on each button.
+     */
     void react(pushButtonsEvent const& e) override
     {
         switch (e.Button)
@@ -721,8 +882,9 @@ class menuLocDelete : public wmcApp
     };
 };
 
-//----------------------------------------------------------------------------
-// Base state: default implementations
+/***********************************************************************************************************************
+ * Default event handlers when not declared in states itself.
+ */
 
 void wmcApp::react(updateEvent50msec const&) { WmcCheckForDataRx(); };
 void wmcApp::react(pulseSwitchEvent const&){};
@@ -734,33 +896,14 @@ void wmcApp::react(updateEvent3sec const&)
     WmcCheckForDataTx();
 };
 
-/* Init variables. */
-WmcTft wmcApp::m_wmcTft;
-LocLib wmcApp::m_locLib;
-WiFiUDP wmcApp::m_WifiUdp;
-Z21Slave wmcApp::m_z21Slave;
-bool wmcApp::m_locSelection;
-bool wmcApp::m_TrackPower = false;
-byte wmcApp::WmcPacketBuffer[40];
-uint16_t wmcApp::m_ConnectCnt       = 0;
-uint16_t wmcApp::m_UdpLocalPort     = 21105;
-uint16_t wmcApp::m_locAddressAdd    = 1;
-uint8_t wmcApp::m_locFunctionAdd    = 0;
-uint8_t wmcApp::m_locFunctionChange = 0;
-uint16_t wmcApp::m_locAddressDelete = 0;
-uint16_t wmcApp::m_locAddressChange = 0;
-uint8_t wmcApp::m_locFunctionAssignment[5];
-Z21Slave::locInfo wmcApp::WmcLocInfoControl;
-Z21Slave::locInfo* wmcApp::WmcLocInfoReceived = NULL;
-
-// ----------------------------------------------------------------------------
-// Initial state definition
-//
+/***********************************************************************************************************************
+ * Initial state.
+ */
 FSM_INITIAL_STATE(wmcApp, setUpWifi)
 
-// ----------------------------------------------------------------------------
-// Private functions.
-//
+/***********************************************************************************************************************
+ * limit maximum loc addres.
+ */
 uint16_t wmcApp::limitLocAddress(uint16_t locAddress)
 {
     uint16_t locAdrresReturn = locAddress;
@@ -777,6 +920,7 @@ uint16_t wmcApp::limitLocAddress(uint16_t locAddress)
 }
 
 /***********************************************************************************************************************
+ * Check for received Z21 data and process it.
  */
 Z21Slave::dataType wmcApp::WmcCheckForDataRx(void)
 {
@@ -799,6 +943,7 @@ Z21Slave::dataType wmcApp::WmcCheckForDataRx(void)
 }
 
 /***********************************************************************************************************************
+ * Check for data to be transmitted.
  */
 void wmcApp::WmcCheckForDataTx(void)
 {
@@ -816,6 +961,7 @@ void wmcApp::WmcCheckForDataTx(void)
 }
 
 /***********************************************************************************************************************
+ * Update loc info on screen.
  */
 void wmcApp::updateLocInfoOnScreen(bool updateAll)
 {
@@ -851,6 +997,7 @@ void wmcApp::updateLocInfoOnScreen(bool updateAll)
 }
 
 /***********************************************************************************************************************
+ * Compose locomotive message to be transmitted and transmit it.
  */
 void wmcApp::PrepareLanXSetLocoDriveAndTransmit(void)
 {
