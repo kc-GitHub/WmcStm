@@ -1,0 +1,28 @@
+/***********************************************************************************************************************
+   @file   wmc_app.cpp
+   @brief  Main application of WifiManualControl (WMC).
+ **********************************************************************************************************************/
+
+#ifndef EEP_CFG_H
+#define EEP_CFG_H
+
+/***********************************************************************************************************************
+   I N C L U D E S
+ **********************************************************************************************************************/
+
+/***********************************************************************************************************************
+   C L A S S E S
+ **********************************************************************************************************************/
+
+class EepCfg
+{
+public:
+    static const uint8_t EepromVersion            = 2;   /* Version of data in EEPROM. */
+    static const int EepromVersionAddress         = 1;   /* EEPROM address version info. */
+    static const int SsidAddress                  = 2;   /* Address of Ssid name */
+    static const int SsidPasswordAddress          = 60;  /* Address of Ssid password */
+    static const int locLibEepromAddressData      = 100; /* Start in EEPROM address loc data. */
+    static const uint8_t locLibMaxNumberOfLocs    = 64;  /* Max number of locs in EEPROM. */
+    static const int locLibEepromAddressNumOfLocs = 99;  /* EEPROM address num of locs. */
+};
+#endif
