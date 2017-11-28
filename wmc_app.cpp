@@ -7,7 +7,9 @@
    I N C L U D E S
  **********************************************************************************************************************/
 #include "wmc_app.h"
+#include "eep_cfg.h"
 #include "fsmlist.hpp"
+#include <EEPROM.h>
 #include <tinyfsm.hpp>
 
 /***********************************************************************************************************************
@@ -64,14 +66,21 @@ class setUpWifi : public wmcApp
      */
     void entry() override
     {
+        char SsidName[50];
+        char SsidPassword[50];
+
         m_ConnectCnt = 0;
 
         m_wmcTft.Init();
         m_locLib.Init();
         m_wmcTft.UpdateStatus("Connecting to Wifi", true, WmcTft::color_yellow);
 
+        /* Get SSID data from EEPROM. */
+        EEPROM.get(EepCfg::SsidAddress, SsidName);
+        EEPROM.get(EepCfg::SsidPasswordAddress, SsidPassword);
+
         WiFi.mode(WIFI_STA);
-        WiFi.begin("SSID", "PASSWORD");
+        WiFi.begin(SsidName, SsidPassword);
     };
 
     /**
