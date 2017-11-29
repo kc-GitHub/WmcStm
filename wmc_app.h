@@ -93,11 +93,12 @@ protected:
     static Z21Slave m_z21Slave;
     static bool m_locSelection;
     static uint16_t m_ConnectCnt;
+    static uint8_t m_IpAddres[4];
     static uint16_t m_UdpLocalPort;
     static uint16_t m_locAddressAdd;
     static uint16_t m_locAddressChange;
     static uint16_t m_locAddressDelete;
-    static byte WmcPacketBuffer[40];
+    static byte m_WmcPacketBuffer[40];
     static uint8_t m_locFunctionAdd;
     static uint8_t m_locFunctionChange;
     static uint8_t m_locFunctionAssignment[5];

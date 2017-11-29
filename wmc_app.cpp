@@ -39,8 +39,9 @@ LocLib wmcApp::m_locLib;
 WiFiUDP wmcApp::m_WifiUdp;
 Z21Slave wmcApp::m_z21Slave;
 bool wmcApp::m_locSelection;
+uint8_t wmcApp::m_IpAddres[4];
 bool wmcApp::m_TrackPower = false;
-byte wmcApp::WmcPacketBuffer[40];
+byte wmcApp::m_WmcPacketBuffer[40];
 uint16_t wmcApp::m_ConnectCnt       = 0;
 uint16_t wmcApp::m_UdpLocalPort     = 21105;
 uint16_t wmcApp::m_locAddressAdd    = 1;
@@ -78,6 +79,7 @@ class setUpWifi : public wmcApp
         /* Get SSID data from EEPROM. */
         EEPROM.get(EepCfg::SsidAddress, SsidName);
         EEPROM.get(EepCfg::SsidPasswordAddress, SsidPassword);
+        EEPROM.get(EepCfg::EepIpAddress, m_IpAddres);
 
         WiFi.mode(WIFI_STA);
         WiFi.begin(SsidName, SsidPassword);
@@ -939,12 +941,12 @@ Z21Slave::dataType wmcApp::WmcCheckForDataRx(void)
     if (m_WifiUdp.parsePacket())
     {
         // We've received a packet, read the data from it into the buffer
-        WmcPacketBufferLength = m_WifiUdp.read(WmcPacketBuffer, 40);
+        WmcPacketBufferLength = m_WifiUdp.read(m_WmcPacketBuffer, 40);
 
         if (WmcPacketBufferLength != 0)
         {
             // Process the data.
-            returnData = m_z21Slave.ProcesDataRx(WmcPacketBuffer, sizeof(WmcPacketBuffer));
+            returnData = m_z21Slave.ProcesDataRx(m_WmcPacketBuffer, sizeof(m_WmcPacketBuffer));
         }
     }
 
@@ -957,7 +959,7 @@ Z21Slave::dataType wmcApp::WmcCheckForDataRx(void)
 void wmcApp::WmcCheckForDataTx(void)
 {
     uint8_t* DataTransmitPtr;
-    IPAddress WmcUdpIp(192, 168, 2, 112);
+    IPAddress WmcUdpIp(m_IpAddres[0], m_IpAddres[1], m_IpAddres[2], m_IpAddres[3]);
 
     if (m_z21Slave.txDataPresent() == true)
     {

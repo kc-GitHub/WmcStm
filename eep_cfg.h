@@ -21,8 +21,9 @@ public:
     static const int EepromVersionAddress         = 1;   /* EEPROM address version info. */
     static const int SsidAddress                  = 2;   /* Address of Ssid name */
     static const int SsidPasswordAddress          = 60;  /* Address of Ssid password */
-    static const int locLibEepromAddressData      = 100; /* Start in EEPROM address loc data. */
+    static const int EepIpAddress                 = 112; /* Aadress of IP address in EEPROM. */
+    static const int locLibEepromAddressData      = 120; /* Start in EEPROM address loc data. */
     static const uint8_t locLibMaxNumberOfLocs    = 64;  /* Max number of locs in EEPROM. */
-    static const int locLibEepromAddressNumOfLocs = 99;  /* EEPROM address num of locs. */
+    static const int locLibEepromAddressNumOfLocs = 119; /* EEPROM address num of locs. */
 };
 #endif
