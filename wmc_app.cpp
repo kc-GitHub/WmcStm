@@ -50,8 +50,8 @@ uint8_t wmcApp::m_locFunctionChange = 0;
 uint16_t wmcApp::m_locAddressDelete = 0;
 uint16_t wmcApp::m_locAddressChange = 0;
 uint8_t wmcApp::m_locFunctionAssignment[5];
-Z21Slave::locInfo wmcApp::WmcLocInfoControl;
-Z21Slave::locInfo* wmcApp::WmcLocInfoReceived = NULL;
+Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
+Z21Slave::locInfo* wmcApp::m_WmcLocInfoReceived = NULL;
 
 /***********************************************************************************************************************
   F U N C T I O N S
@@ -276,7 +276,7 @@ class initLocInfoGet : public wmcApp
         case Z21Slave::locinfo:
             m_wmcTft.Clear();
             updateLocInfoOnScreen(true);
-            m_locLib.SpeedUpdate(WmcLocInfoReceived->Speed);
+            m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
             if (m_TrackPower == false)
             {
                 transit<powerOff>();
@@ -332,7 +332,7 @@ class powerOff : public wmcApp
         case Z21Slave::trackPowerOn: transit<powerOn>(); break;
         case Z21Slave::locinfo:
             updateLocInfoOnScreen(false);
-            m_locLib.SpeedUpdate(WmcLocInfoReceived->Speed);
+            m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
             break;
         default: break;
         }
@@ -413,7 +413,7 @@ class powerOn : public wmcApp
         case Z21Slave::trackPowerOff: transit<powerOff>(); break;
         case Z21Slave::locinfo:
             updateLocInfoOnScreen(false);
-            m_locLib.SpeedUpdate(WmcLocInfoReceived->Speed);
+            m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
             break;
         default: break;
         }
@@ -976,12 +976,12 @@ void wmcApp::WmcCheckForDataTx(void)
  */
 void wmcApp::updateLocInfoOnScreen(bool updateAll)
 {
-    uint8_t Index      = 0;
-    WmcLocInfoReceived = m_z21Slave.LanXLocoInfo();
+    uint8_t Index        = 0;
+    m_WmcLocInfoReceived = m_z21Slave.LanXLocoInfo();
 
-    if (m_locLib.GetActualLocAddress() == WmcLocInfoReceived->Address)
+    if (m_locLib.GetActualLocAddress() == m_WmcLocInfoReceived->Address)
     {
-        switch (WmcLocInfoReceived->Steps)
+        switch (m_WmcLocInfoReceived->Steps)
         {
         case Z21Slave::locDecoderSpeedSteps14: m_locLib.DecoderStepsUpdate(LocLib::decoderStep14); break;
         case Z21Slave::locDecoderSpeedSteps28: m_locLib.DecoderStepsUpdate(LocLib::decoderStep28); break;
@@ -997,13 +997,13 @@ void wmcApp::updateLocInfoOnScreen(bool updateAll)
         /* Invert functions so function symbols are updated if new loc is selected. */
         if (m_locSelection == true)
         {
-            WmcLocInfoControl.Functions = ~WmcLocInfoReceived->Functions;
-            m_locSelection              = false;
+            m_WmcLocInfoControl.Functions = ~m_WmcLocInfoReceived->Functions;
+            m_locSelection                = false;
         }
 
-        m_wmcTft.UpdateLocInfo(WmcLocInfoReceived, &WmcLocInfoControl, m_locFunctionAssignment, updateAll);
+        m_wmcTft.UpdateLocInfo(m_WmcLocInfoReceived, &m_WmcLocInfoControl, m_locFunctionAssignment, updateAll);
 
-        memcpy(&WmcLocInfoControl, WmcLocInfoReceived, sizeof(Z21Slave::locInfo));
+        memcpy(&m_WmcLocInfoControl, m_WmcLocInfoReceived, sizeof(Z21Slave::locInfo));
     }
 }
 

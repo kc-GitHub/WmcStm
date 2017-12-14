@@ -102,8 +102,8 @@ protected:
     static uint8_t m_locFunctionAdd;
     static uint8_t m_locFunctionChange;
     static uint8_t m_locFunctionAssignment[5];
-    static Z21Slave::locInfo WmcLocInfoControl;
-    static Z21Slave::locInfo* WmcLocInfoReceived;
+    static Z21Slave::locInfo m_WmcLocInfoControl;
+    static Z21Slave::locInfo* m_WmcLocInfoReceived;
 };
 
 #endif
