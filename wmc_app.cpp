@@ -79,6 +79,7 @@ class setUpWifi : public wmcApp
         m_wmcTft.Init();
         m_locLib.Init();
         m_wmcTft.UpdateStatus("Connecting to Wifi", true, WmcTft::color_yellow);
+        m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
 
         /* Get SSID data from EEPROM. */
         EEPROM.get(EepCfg::SsidAddress, SsidName);
@@ -138,12 +139,13 @@ class initUdpConnect : public wmcApp
     void entry()
     {
         m_ConnectCnt = 0;
-        m_wmcTft.UpdateStatus("Connecting to Control", true, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus("Connect to Control", true, WmcTft::color_yellow);
+        m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
         m_WifiUdp.begin(m_UdpLocalPort);
     }
 
     /**
-     * No response, retry.
+     * Request status to check connection with control.
      */
     void react(updateEvent500msec const&) override
     {
@@ -153,6 +155,7 @@ class initUdpConnect : public wmcApp
         {
             m_z21Slave.LanGetStatus();
             WmcCheckForDataTx();
+            m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
         }
         else
         {
