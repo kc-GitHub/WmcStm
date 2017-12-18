@@ -627,7 +627,7 @@ class turnoutControl : public wmcApp
         case button_power:
             m_z21Slave.LanSetTrackPowerOff();
             WmcCheckForDataTx();
-            m_wmcTft.UpdateStatus("PowerOff", false, WmcTft::color_red);
+            m_TrackPower = false;
             break;
         case button_0: m_TurnOutAddress++; break;
         case button_1: m_TurnOutAddress += 10; break;
