@@ -46,7 +46,7 @@ byte wmcApp::m_WmcPacketBuffer[40];
 uint16_t wmcApp::m_ConnectCnt                = 0;
 uint16_t wmcApp::m_UdpLocalPort              = 21105;
 uint16_t wmcApp::m_locAddressAdd             = 1;
-uint16_t wmcApp::m_TurnOutAddress            = 1;
+uint16_t wmcApp::m_TurnOutAddress            = ADDRESS_TURNOUT_MIN;
 Z21Slave::turnout wmcApp::m_TurnOutDirection = Z21Slave::directionOff;
 uint32_t wmcApp::m_TurnoutOffDelay           = 0;
 uint8_t wmcApp::m_locFunctionAdd             = 0;
@@ -569,13 +569,13 @@ class turnoutControl : public wmcApp
             if (e.Delta > 0)
             {
                 /* Increase address and check for overrrun. */
-                if (m_TurnOutAddress < 9999)
+                if (m_TurnOutAddress < ADDRESS_TURNOUT_MAX)
                 {
                     m_TurnOutAddress++;
                 }
                 else
                 {
-                    m_TurnOutAddress = 1;
+                    m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
                 }
 
                 updateScreen = true;
@@ -583,20 +583,20 @@ class turnoutControl : public wmcApp
             else if (e.Delta < 0)
             {
                 /* Decrease address and handle address 0. */
-                if (m_TurnOutAddress > 1)
+                if (m_TurnOutAddress > ADDRESS_TURNOUT_MIN)
                 {
                     m_TurnOutAddress--;
                 }
                 else
                 {
-                    m_TurnOutAddress = 9999;
+                    m_TurnOutAddress = ADDRESS_TURNOUT_MAX;
                 }
                 updateScreen = true;
             }
             break;
         case pushedShort:
             /* Reset turnout address. */
-            m_TurnOutAddress = 1;
+            m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
             updateScreen     = true;
             break;
         case pushedNormal:
@@ -650,7 +650,7 @@ class turnoutControl : public wmcApp
 
         if (updateScreen == true)
         {
-            if (m_TurnOutAddress > 9999)
+            if (m_TurnOutAddress > ADDRESS_TURNOUT_MAX)
             {
                 m_TurnOutAddress = 1;
             }
@@ -833,17 +833,17 @@ class menuLocFunctionsAdd : public wmcApp
             if (e.Delta > 0)
             {
                 m_locFunctionAdd++;
-                if (m_locFunctionAdd > 28)
+                if (m_locFunctionAdd > FUNCTION_MAX)
                 {
-                    m_locFunctionAdd = 0;
+                    m_locFunctionAdd = FUNCTION_MIN;
                 }
                 m_wmcTft.FunctionAddUpdate(m_locFunctionAdd);
             }
             else if (e.Delta > 0)
             {
-                if (m_locFunctionAdd == 0)
+                if (m_locFunctionAdd == FUNCTION_MIN)
                 {
-                    m_locFunctionAdd = 28;
+                    m_locFunctionAdd = FUNCTION_MAX;
                 }
                 else
                 {
@@ -1095,13 +1095,13 @@ FSM_INITIAL_STATE(wmcApp, setUpWifi)
 uint16_t wmcApp::limitLocAddress(uint16_t locAddress)
 {
     uint16_t locAdrresReturn = locAddress;
-    if (locAdrresReturn > 9999)
+    if (locAdrresReturn > ADDRESS_LOC_MAX)
     {
-        locAdrresReturn = 1;
+        locAdrresReturn = ADDRESS_LOC_MIN;
     }
     else if (locAdrresReturn == 0)
     {
-        locAdrresReturn = 9999;
+        locAdrresReturn = ADDRESS_LOC_MAX;
     }
 
     return (locAdrresReturn);

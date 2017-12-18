@@ -111,6 +111,12 @@ protected:
 
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 120;
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 10;
+    static const uint16_t ADDRESS_TURNOUT_MIN              = 1;
+    static const uint16_t ADDRESS_TURNOUT_MAX              = 9999;
+    static const uint16_t ADDRESS_LOC_MIN                  = 1;
+    static const uint16_t ADDRESS_LOC_MAX                  = 9999;
+    static const uint8_t FUNCTION_MIN                      = 0;
+    static const uint8_t FUNCTION_MAX                      = 28;
 };
 
 #endif
