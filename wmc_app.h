@@ -33,6 +33,7 @@ enum pushButtons
     button_2,
     button_3,
     button_4,
+    button_5,
     button_power,
     button_none
 };
@@ -77,7 +78,7 @@ public:
     virtual void react(updateEvent500msec const&);
 
     virtual void entry(void){}; /* entry actions in some states */
-    void exit(void){};          /* no exit actions at all */
+    virtual void exit(void){};  /* no exit actions at all */
 
 protected:
     uint16_t limitLocAddress(uint16_t locAddress);
@@ -96,6 +97,9 @@ protected:
     static uint8_t m_IpAddres[4];
     static uint16_t m_UdpLocalPort;
     static uint16_t m_locAddressAdd;
+    static uint16_t m_TurnOutAddress;
+    static Z21Slave::turnout m_TurnOutDirection;
+    static uint32_t m_TurnoutOffDelay;
     static uint16_t m_locAddressChange;
     static uint16_t m_locAddressDelete;
     static byte m_WmcPacketBuffer[40];
@@ -104,6 +108,9 @@ protected:
     static uint8_t m_locFunctionAssignment[5];
     static Z21Slave::locInfo m_WmcLocInfoControl;
     static Z21Slave::locInfo* m_WmcLocInfoReceived;
+
+    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 120;
+    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 10;
 };
 
 #endif

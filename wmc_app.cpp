@@ -23,6 +23,7 @@ class initStatusGet;
 class initLocInfoGet;
 class powerOff;
 class powerOn;
+class turnoutControl;
 class mainMenu;
 class menuLocAdd;
 class menuLocFunctionsAdd;
@@ -42,13 +43,16 @@ bool wmcApp::m_locSelection;
 uint8_t wmcApp::m_IpAddres[4];
 bool wmcApp::m_TrackPower = false;
 byte wmcApp::m_WmcPacketBuffer[40];
-uint16_t wmcApp::m_ConnectCnt       = 0;
-uint16_t wmcApp::m_UdpLocalPort     = 21105;
-uint16_t wmcApp::m_locAddressAdd    = 1;
-uint8_t wmcApp::m_locFunctionAdd    = 0;
-uint8_t wmcApp::m_locFunctionChange = 0;
-uint16_t wmcApp::m_locAddressDelete = 0;
-uint16_t wmcApp::m_locAddressChange = 0;
+uint16_t wmcApp::m_ConnectCnt                = 0;
+uint16_t wmcApp::m_UdpLocalPort              = 21105;
+uint16_t wmcApp::m_locAddressAdd             = 1;
+uint16_t wmcApp::m_TurnOutAddress            = 1;
+Z21Slave::turnout wmcApp::m_TurnOutDirection = Z21Slave::directionOff;
+uint32_t wmcApp::m_TurnoutOffDelay           = 0;
+uint8_t wmcApp::m_locFunctionAdd             = 0;
+uint8_t wmcApp::m_locFunctionChange          = 0;
+uint16_t wmcApp::m_locAddressDelete          = 0;
+uint16_t wmcApp::m_locAddressChange          = 0;
 uint8_t wmcApp::m_locFunctionAssignment[5];
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
 Z21Slave::locInfo* wmcApp::m_WmcLocInfoReceived = NULL;
@@ -93,7 +97,7 @@ class setUpWifi : public wmcApp
         if (WiFi.status() != WL_CONNECTED)
         {
             m_ConnectCnt++;
-            if (m_ConnectCnt < 120)
+            if (m_ConnectCnt < CONNECT_CNT_MAX_FAIL_CONNECT_WIFI)
             {
                 m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
             }
@@ -104,7 +108,7 @@ class setUpWifi : public wmcApp
         }
         else
         {
-            // start udp
+            /* Start UDP */
             transit<initUdpConnect>();
         }
     };
@@ -145,7 +149,7 @@ class initUdpConnect : public wmcApp
     {
         m_ConnectCnt++;
 
-        if (m_ConnectCnt < 120)
+        if (m_ConnectCnt < CONNECT_CNT_MAX_FAIL_CONNECT_UDP)
         {
             m_z21Slave.LanGetStatus();
             WmcCheckForDataTx();
@@ -499,10 +503,179 @@ class powerOn : public wmcApp
             }
             WmcCheckForDataTx();
             break;
-
+        case button_5: transit<turnoutControl>(); break;
         default: break;
         }
     };
+};
+
+/***********************************************************************************************************************
+ * Show main menu and handle the request.
+ */
+class turnoutControl : public wmcApp
+{
+    /**
+     * Show turnout screen.
+     */
+    void entry() override
+    {
+        m_TurnOutDirection = Z21Slave::directionOff;
+
+        m_wmcTft.ShowTurnoutScreen();
+        m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
+        m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
+    };
+
+    /**
+     * Handle received data.
+     */
+    void react(updateEvent50msec const&) override
+    {
+        switch (WmcCheckForDataRx())
+        {
+        case Z21Slave::trackPowerOff:
+            /* Get locinfo so screen is back to loc when power off. */
+            transit<initLocInfoGet>();
+            break;
+        default: break;
+        }
+
+        /* When turnout active sent after 500msec off command. */
+        if (m_TurnOutDirection != Z21Slave::directionOff)
+        {
+            if ((millis() - m_TurnoutOffDelay) > 500)
+            {
+                m_TurnOutDirection = Z21Slave::directionOff;
+                m_z21Slave.LanXSetTurnout(m_TurnOutAddress - 1, m_TurnOutDirection);
+                WmcCheckForDataTx();
+                m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
+            }
+        }
+    };
+
+    /**
+     * Handle pulse switch events.
+     */
+    void react(pulseSwitchEvent const& e) override
+    {
+        bool updateScreen = false;
+        switch (e.Status)
+        {
+        case pushturn: break;
+        case turn:
+            if (e.Delta > 0)
+            {
+                /* Increase address and check for overrrun. */
+                if (m_TurnOutAddress < 9999)
+                {
+                    m_TurnOutAddress++;
+                }
+                else
+                {
+                    m_TurnOutAddress = 1;
+                }
+
+                updateScreen = true;
+            }
+            else if (e.Delta < 0)
+            {
+                /* Decrease address and handle address 0. */
+                if (m_TurnOutAddress > 1)
+                {
+                    m_TurnOutAddress--;
+                }
+                else
+                {
+                    m_TurnOutAddress = 9999;
+                }
+                updateScreen = true;
+            }
+            break;
+        case pushedShort:
+            /* Reset turnout address. */
+            m_TurnOutAddress = 1;
+            updateScreen     = true;
+            break;
+        case pushedNormal:
+            /* Back to loc control. */
+            transit<initLocInfoGet>();
+            break;
+        default: break;
+        }
+
+        /* Update address on display if required. */
+        if (updateScreen == true)
+        {
+            m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
+        }
+    };
+
+    /**
+     * Handle pulse switch events.
+     */
+    void react(pushButtonsEvent const& e) override
+    {
+        bool updateScreen       = true;
+        bool sentTurnOutCommand = false;
+
+        /* Handle menu request. */
+        switch (e.Button)
+        {
+        case button_power:
+            m_z21Slave.LanSetTrackPowerOff();
+            WmcCheckForDataTx();
+            m_wmcTft.UpdateStatus("PowerOff", false, WmcTft::color_red);
+            break;
+        case button_0: m_TurnOutAddress++; break;
+        case button_1: m_TurnOutAddress += 10; break;
+        case button_2: m_TurnOutAddress += 100; break;
+        case button_3: m_TurnOutAddress += 1000; break;
+        case button_4:
+            m_TurnOutDirection = Z21Slave::directionForward;
+            m_TurnoutOffDelay  = millis();
+            updateScreen       = false;
+            sentTurnOutCommand = true;
+            break;
+        case button_5:
+            m_TurnOutDirection = Z21Slave::directionTurn;
+            m_TurnoutOffDelay  = millis();
+            updateScreen       = false;
+            sentTurnOutCommand = true;
+            break;
+        default: break;
+        }
+
+        if (updateScreen == true)
+        {
+            if (m_TurnOutAddress > 9999)
+            {
+                m_TurnOutAddress = 1;
+            }
+            m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
+        }
+
+        if (sentTurnOutCommand == true)
+        {
+            /* Sent command and show turnout direction. */
+            m_z21Slave.LanXSetTurnout(m_TurnOutAddress - 1, m_TurnOutDirection);
+            WmcCheckForDataTx();
+            m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
+        }
+    };
+
+    /**
+     * When exit and turnout active transmit off command.
+     */
+    void exit() override
+    {
+        if (m_TurnOutDirection != Z21Slave::directionOff)
+        {
+            m_TurnOutDirection = Z21Slave::directionOff;
+            m_z21Slave.LanXSetTurnout(m_TurnOutAddress - 1, m_TurnOutDirection);
+            WmcCheckForDataTx();
+            m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
+        }
+    }
 };
 
 /***********************************************************************************************************************
@@ -610,6 +783,7 @@ class menuLocAdd : public wmcApp
             updateScreen = false;
             transit<mainMenu>();
             break;
+        case button_5:
         default: updateScreen = false; break;
         }
 
