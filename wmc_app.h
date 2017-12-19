@@ -1,16 +1,28 @@
+/**
+ **********************************************************************************************************************
+ * @file  wmc_app.h
+ * @brief Main application of the Wifi manual control.
+ ***********************************************************************************************************************
+ */
 #ifndef WMC_APP_H
 #define WMC_APP_H
 
+/***********************************************************************************************************************
+ * I N C L U D E S
+ **********************************************************************************************************************/
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <WmcTft.h>
 #include <Z21Slave.h>
 #include <tinyfsm.hpp>
 
-// ----------------------------------------------------------------------------
-// Event declarations
-//
+/***********************************************************************************************************************
+ * T Y P E D  E F S  /  E N U M
+ **********************************************************************************************************************/
 
+/**
+ *
+ */
 enum pulseSwitchStatus
 {
     turn = 0,
@@ -20,12 +32,18 @@ enum pulseSwitchStatus
     pushedlong,
 };
 
+/**
+ *
+ */
 struct pulseSwitchEvent : tinyfsm::Event
 {
     int8_t Delta;
     pulseSwitchStatus Status;
 };
 
+/**
+ *
+ */
 enum pushButtons
 {
     button_0 = 0,
@@ -38,35 +56,41 @@ enum pushButtons
     button_none
 };
 
+/**
+ *
+ */
 struct pushButtonsEvent : tinyfsm::Event
 {
     pushButtons Button;
 };
 
+/**
+ *
+ */
 struct updateEvent50msec : tinyfsm::Event
 {
 };
 
+/**
+ *
+ */
 struct updateEvent500msec : tinyfsm::Event
 {
 };
 
+/**
+ *
+ */
 struct updateEvent3sec : tinyfsm::Event
 {
 };
 
-// ----------------------------------------------------------------------------
-// WMCr (FSM base class) declaration
-//
+/***********************************************************************************************************************
+ * C L A S S E S
+ **********************************************************************************************************************/
 
 class wmcApp : public tinyfsm::Fsm<wmcApp>
 {
-    /* NOTE: react(), entry() and exit() functions need to be accessible
-     * from tinyfsm::Fsm class. You might as well declare friendship to
-     * tinyfsm::Fsm, and make these functions private:
-     *
-     * friend class Fsm;
-     */
 public:
     /* default reaction for unhandled events */
     void react(tinyfsm::Event const&){};
