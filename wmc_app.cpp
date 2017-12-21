@@ -24,6 +24,7 @@ class initLocInfoGet;
 class powerOff;
 class powerOn;
 class turnoutControl;
+class turnoutControlPowerOff;
 class mainMenu;
 class menuLocAdd;
 class menuLocFunctionsAdd;
@@ -506,7 +507,10 @@ class powerOn : public wmcApp
             }
             WmcCheckForDataTx();
             break;
-        case button_5: transit<turnoutControl>(); break;
+        case button_5:
+            m_wmcTft.Clear();
+            transit<turnoutControl>();
+            break;
         default: break;
         }
     };
@@ -524,6 +528,7 @@ class turnoutControl : public wmcApp
     {
         m_TurnOutDirection = Z21Slave::directionOff;
 
+        m_wmcTft.UpdateStatus("TURNOUT", true, WmcTft::color_green);
         m_wmcTft.ShowTurnoutScreen();
         m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
         m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
@@ -536,20 +541,7 @@ class turnoutControl : public wmcApp
     {
         switch (WmcCheckForDataRx())
         {
-        case Z21Slave::trackPowerOff:
-            if (m_TrackPower != false)
-            {
-                m_wmcTft.UpdateStatus("TURNOUT", false, WmcTft::color_red);
-                m_TrackPower = false;
-            }
-            break;
-        case Z21Slave::trackPowerOn:
-            if (m_TrackPower != true)
-            {
-                m_wmcTft.UpdateStatus("TURNOUT", false, WmcTft::color_green);
-                m_TrackPower = true;
-            }
-            break;
+        case Z21Slave::trackPowerOff: transit<turnoutControlPowerOff>(); break;
         default: break;
         }
 
@@ -576,35 +568,32 @@ class turnoutControl : public wmcApp
         {
         case pushturn: break;
         case turn:
-            if (m_TrackPower == true)
+            if (e.Delta > 0)
             {
-                if (e.Delta > 0)
+                /* Increase address and check for overrrun. */
+                if (m_TurnOutAddress < ADDRESS_TURNOUT_MAX)
                 {
-                    /* Increase address and check for overrrun. */
-                    if (m_TurnOutAddress < ADDRESS_TURNOUT_MAX)
-                    {
-                        m_TurnOutAddress++;
-                    }
-                    else
-                    {
-                        m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
-                    }
+                    m_TurnOutAddress++;
+                }
+                else
+                {
+                    m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
+                }
 
-                    updateScreen = true;
-                }
-                else if (e.Delta < 0)
+                updateScreen = true;
+            }
+            else if (e.Delta < 0)
+            {
+                /* Decrease address and handle address 0. */
+                if (m_TurnOutAddress > ADDRESS_TURNOUT_MIN)
                 {
-                    /* Decrease address and handle address 0. */
-                    if (m_TurnOutAddress > ADDRESS_TURNOUT_MIN)
-                    {
-                        m_TurnOutAddress--;
-                    }
-                    else
-                    {
-                        m_TurnOutAddress = ADDRESS_TURNOUT_MAX;
-                    }
-                    updateScreen = true;
+                    m_TurnOutAddress--;
                 }
+                else
+                {
+                    m_TurnOutAddress = ADDRESS_TURNOUT_MAX;
+                }
+                updateScreen = true;
             }
             break;
         case pushedShort:
@@ -631,66 +620,31 @@ class turnoutControl : public wmcApp
      */
     void react(pushButtonsEvent const& e) override
     {
-        bool updateScreen       = false;
+        bool updateScreen       = true;
         bool sentTurnOutCommand = false;
 
         /* Handle button requests. */
         switch (e.Button)
         {
         case button_power:
-            if (m_TrackPower == true)
-            {
-                m_z21Slave.LanSetTrackPowerOff();
-            }
-            else
-            {
-                m_z21Slave.LanSetTrackPowerOn();
-            }
+            m_z21Slave.LanSetTrackPowerOff();
             WmcCheckForDataTx();
             break;
-        case button_0:
-            if (m_TrackPower == true)
-            {
-                m_TurnOutAddress++;
-                updateScreen = true;
-            };
-            break;
-        case button_1:
-            if (m_TrackPower == true)
-            {
-                m_TurnOutAddress += 10;
-                updateScreen = true;
-            };
-            break;
-        case button_2:
-            if (m_TrackPower == true)
-            {
-                m_TurnOutAddress += 100;
-                updateScreen = true;
-            };
-            break;
-        case button_3:
-            if (m_TrackPower == true)
-            {
-                m_TurnOutAddress += 1000;
-                updateScreen = true;
-            };
-            break;
+        case button_0: m_TurnOutAddress++; break;
+        case button_1: m_TurnOutAddress += 10; break;
+        case button_2: m_TurnOutAddress += 100; break;
+        case button_3: m_TurnOutAddress += 1000; break;
         case button_4:
-            if (m_TrackPower == true)
-            {
-                m_TurnOutDirection = Z21Slave::directionForward;
-                m_TurnoutOffDelay  = millis();
-                sentTurnOutCommand = true;
-            }
+            m_TurnOutDirection = Z21Slave::directionForward;
+            m_TurnoutOffDelay  = millis();
+            updateScreen       = false;
+            sentTurnOutCommand = true;
             break;
         case button_5:
-            if (m_TrackPower == true)
-            {
-                m_TurnOutDirection = Z21Slave::directionTurn;
-                m_TurnoutOffDelay  = millis();
-                sentTurnOutCommand = true;
-            }
+            m_TurnOutDirection = Z21Slave::directionTurn;
+            m_TurnoutOffDelay  = millis();
+            updateScreen       = false;
+            sentTurnOutCommand = true;
             break;
         default: break;
         }
@@ -726,6 +680,77 @@ class turnoutControl : public wmcApp
             m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
         }
     }
+};
+
+/***********************************************************************************************************************
+ * Power off screen and handling for turnout control.
+ */
+class turnoutControlPowerOff : public wmcApp
+{
+    /**
+     * Show turnout screen.
+     */
+    void entry() override
+    {
+        m_wmcTft.UpdateStatus("TURNOUT", true, WmcTft::color_red);
+        m_TrackPower = false;
+    };
+
+    /**
+     * Handle received data.
+     */
+    void react(updateEvent50msec const&) override
+    {
+        switch (WmcCheckForDataRx())
+        {
+        case Z21Slave::trackPowerOff: break;
+        case Z21Slave::trackPowerOn:
+            m_TrackPower = true;
+            transit<turnoutControl>();
+            break;
+        default: break;
+        }
+    };
+
+    /**
+     * Handle pulse switch events.
+     */
+    void react(pulseSwitchEvent const& e) override
+    {
+        switch (e.Status)
+        {
+        case pushturn: break;
+        case turn:
+        case pushedShort: break;
+        case pushedNormal:
+            /* Back to loc control. */
+            transit<initLocInfoGet>();
+            break;
+        default: break;
+        }
+    };
+
+    /**
+     * Handle pulse switch events.
+     */
+    void react(pushButtonsEvent const& e) override
+    {
+        /* Handle button requests. */
+        switch (e.Button)
+        {
+        case button_power:
+            m_z21Slave.LanSetTrackPowerOn();
+            WmcCheckForDataTx();
+            break;
+        case button_0:
+        case button_1:
+        case button_2:
+        case button_3:
+        case button_4:
+        case button_5: break;
+        default: break;
+        }
+    };
 };
 
 /***********************************************************************************************************************
