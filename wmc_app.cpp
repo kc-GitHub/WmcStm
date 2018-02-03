@@ -487,7 +487,7 @@ class powerOn : public wmcApp
     };
 
     /**
-     * Handle function button events.
+     * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
     {
@@ -553,11 +553,10 @@ class powerProgrammingMode : public wmcApp
     };
 
     /**
-     * Handle function button events.
+     * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
     {
-        uint8_t Function = 0;
         switch (e.Button)
         {
         case button_power:
@@ -669,7 +668,7 @@ class turnoutControl : public wmcApp
     };
 
     /**
-     * Handle pulse switch events.
+     * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
     {
@@ -784,7 +783,7 @@ class turnoutControlPowerOff : public wmcApp
     };
 
     /**
-     * Handle pulse switch events.
+     * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
     {
@@ -989,7 +988,7 @@ class menuLocFunctionsAdd : public wmcApp
     };
 
     /**
-     * Handle push button events.
+     * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
     {
@@ -1104,7 +1103,7 @@ class menuLocFunctionsChange : public wmcApp
     };
 
     /**
-     * Handle push button events.
+     * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
     {
@@ -1178,7 +1177,7 @@ class menuLocDelete : public wmcApp
     }
 
     /**
-     * Push button event, just go back to main menu on each button.
+     * Handle button events, just go back to main menu on each button.
      */
     void react(pushButtonsEvent const& e) override
     {
