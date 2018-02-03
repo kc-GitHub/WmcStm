@@ -551,6 +551,22 @@ class powerProgrammingMode : public wmcApp
         default: break;
         }
     };
+
+    /**
+     * Handle function button events.
+     */
+    void react(pushButtonsEvent const& e) override
+    {
+        uint8_t Function = 0;
+        switch (e.Button)
+        {
+        case button_power:
+            m_z21Slave.LanSetTrackPowerOff();
+            WmcCheckForDataTx();
+            break;
+        default: break;
+        }
+    };
 };
 
 /***********************************************************************************************************************
