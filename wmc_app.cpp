@@ -23,6 +23,7 @@ class initStatusGet;
 class initLocInfoGet;
 class powerOff;
 class powerOn;
+class powerProgrammingMode;
 class turnoutControl;
 class turnoutControlPowerOff;
 class mainMenu;
@@ -172,6 +173,7 @@ class initUdpConnect : public wmcApp
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::trackPowerOff:
+        case Z21Slave::programmingMode:
         case Z21Slave::trackPowerOn: transit<initBroadcast>(); break;
         default: break;
         }
@@ -238,6 +240,10 @@ class initStatusGet : public wmcApp
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::trackPowerOff:
+            m_TrackPower = false;
+            transit<initLocInfoGet>();
+            break;
+        case Z21Slave::programmingMode:
             m_TrackPower = false;
             transit<initLocInfoGet>();
             break;
@@ -338,6 +344,7 @@ class powerOff : public wmcApp
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::trackPowerOn: transit<powerOn>(); break;
+        case Z21Slave::programmingMode: transit<powerProgrammingMode>(); break;
         case Z21Slave::locinfo:
             updateLocInfoOnScreen(false);
             m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
@@ -419,6 +426,7 @@ class powerOn : public wmcApp
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::trackPowerOff: transit<powerOff>(); break;
+        case Z21Slave::programmingMode: transit<powerProgrammingMode>(); break;
         case Z21Slave::locinfo:
             updateLocInfoOnScreen(false);
             m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
@@ -511,6 +519,35 @@ class powerOn : public wmcApp
             m_wmcTft.Clear();
             transit<turnoutControl>();
             break;
+        default: break;
+        }
+    };
+};
+
+/***********************************************************************************************************************
+ * Another Z21 device is in programming mode, do nothing....
+ */
+class powerProgrammingMode : public wmcApp
+{
+    /**
+     * Update status row.
+     */
+    void entry() override
+    {
+        m_locSelection = false;
+        m_wmcTft.UpdateStatus("ProgMode", false, WmcTft::color_red);
+        m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
+    };
+
+    /**
+     * Handle received data.
+     */
+    void react(updateEvent50msec const&) override
+    {
+        switch (WmcCheckForDataRx())
+        {
+        case Z21Slave::trackPowerOff: transit<powerOff>(); break;
+        case Z21Slave::trackPowerOn: transit<powerOn>(); break;
         default: break;
         }
     };
