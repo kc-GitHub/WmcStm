@@ -132,6 +132,7 @@ protected:
     static uint8_t m_locFunctionAssignment[5];
     static Z21Slave::locInfo m_WmcLocInfoControl;
     static Z21Slave::locInfo* m_WmcLocInfoReceived;
+    static bool m_WmcLocSpeedRequestPending;
 
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 120;
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 10;

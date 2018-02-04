@@ -15,7 +15,7 @@
 /***********************************************************************************************************************
    D E F I N E S
  **********************************************************************************************************************/
-#define WMC_APP_DEBUG_TX_RX 0
+#define WMC_APP_DEBUG_TX_RX 1
 
 /***********************************************************************************************************************
    F O R W A R D  D E C L A R A T I O N S
@@ -60,6 +60,7 @@ uint8_t wmcApp::m_locFunctionAdd             = 0;
 uint8_t wmcApp::m_locFunctionChange          = 0;
 uint16_t wmcApp::m_locAddressDelete          = 0;
 uint16_t wmcApp::m_locAddressChange          = 0;
+bool wmcApp::m_WmcLocSpeedRequestPending     = false;
 uint8_t wmcApp::m_locFunctionAssignment[5];
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
 Z21Slave::locInfo* wmcApp::m_WmcLocInfoReceived = NULL;
@@ -418,7 +419,8 @@ class powerOn : public wmcApp
      */
     void entry() override
     {
-        m_locSelection = false;
+        m_locSelection              = false;
+        m_WmcLocSpeedRequestPending = false;
         m_wmcTft.UpdateStatus("PowerOn", false, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
@@ -434,6 +436,7 @@ class powerOn : public wmcApp
         case Z21Slave::programmingMode: transit<powerProgrammingMode>(); break;
         case Z21Slave::locinfo:
             updateLocInfoOnScreen(false);
+            m_WmcLocSpeedRequestPending = false;
             m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
             break;
         default: break;
@@ -446,6 +449,7 @@ class powerOn : public wmcApp
     void react(updateEvent3sec const&) override
     {
         m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
+        m_WmcLocSpeedRequestPending = true;
         WmcCheckForDataTx();
     }
 
@@ -470,9 +474,13 @@ class powerOn : public wmcApp
             break;
         case turn:
             /* Increase or decrease speed. */
-            if (m_locLib.SpeedSet(e.Delta) == true)
+            if (m_WmcLocSpeedRequestPending == false)
             {
-                PrepareLanXSetLocoDriveAndTransmit();
+                if (m_locLib.SpeedSet(e.Delta) == true)
+                {
+                    m_WmcLocSpeedRequestPending = true;
+                    PrepareLanXSetLocoDriveAndTransmit();
+                }
             }
             break;
         case pushedShort:
