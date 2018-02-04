@@ -13,6 +13,11 @@
 #include <tinyfsm.hpp>
 
 /***********************************************************************************************************************
+   D E F I N E S
+ **********************************************************************************************************************/
+#define WMC_APP_DEBUG_TX_RX 0
+
+/***********************************************************************************************************************
    F O R W A R D  D E C L A R A T I O N S
  **********************************************************************************************************************/
 class initUdpConnect;
@@ -1238,6 +1243,9 @@ Z21Slave::dataType wmcApp::WmcCheckForDataRx(void)
 {
     int WmcPacketBufferLength     = 0;
     Z21Slave::dataType returnData = Z21Slave::none;
+#if WMC_APP_DEBUG_TX_RX == 1
+    uint8_t Index;
+#endif
 
     if (m_WifiUdp.parsePacket())
     {
@@ -1246,6 +1254,17 @@ Z21Slave::dataType wmcApp::WmcCheckForDataRx(void)
 
         if (WmcPacketBufferLength != 0)
         {
+#if WMC_APP_DEBUG_TX_RX == 1
+            Serial.print("RX : ");
+
+            for (Index = 0; Index < WmcPacketBufferLength; Index++)
+            {
+                Serial.print(m_WmcPacketBuffer[Index], HEX);
+                Serial.print(" ");
+            }
+
+            Serial.println("");
+#endif
             // Process the data.
             returnData = m_z21Slave.ProcesDataRx(m_WmcPacketBuffer, sizeof(m_WmcPacketBuffer));
         }
@@ -1262,9 +1281,25 @@ void wmcApp::WmcCheckForDataTx(void)
     uint8_t* DataTransmitPtr;
     IPAddress WmcUdpIp(m_IpAddres[0], m_IpAddres[1], m_IpAddres[2], m_IpAddres[3]);
 
+#if WMC_APP_DEBUG_TX_RX == 1
+    uint8_t Index;
+#endif
+
     if (m_z21Slave.txDataPresent() == true)
     {
         DataTransmitPtr = m_z21Slave.GetDataTx();
+
+#if WMC_APP_DEBUG_TX_RX == 1
+        Serial.print("TX : ");
+
+        for (Index = 1; Index < DataTransmitPtr[0]; Index++)
+        {
+            Serial.print(DataTransmitPtr[Index], HEX);
+            Serial.print(" ");
+        }
+
+        Serial.println("");
+#endif
 
         m_WifiUdp.beginPacket(WmcUdpIp, m_UdpLocalPort);
         m_WifiUdp.write(DataTransmitPtr, DataTransmitPtr[0]);
