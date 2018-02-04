@@ -668,7 +668,7 @@ class turnoutControl : public wmcApp
             break;
         case pushedNormal:
             /* Back to loc control. */
-            transit<initLocInfoGet>();
+            transit<initStatusGet>();
             break;
         default: break;
         }
