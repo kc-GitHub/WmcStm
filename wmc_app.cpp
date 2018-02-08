@@ -861,7 +861,7 @@ class menuLocAdd : public wmcApp
         // Show loc add screen.
         m_wmcTft.Clear();
         m_wmcTft.UpdateStatus("ADD LOC", true, WmcTft::color_green);
-        m_wmcTft.ShowLocSymbolFw();
+        m_wmcTft.ShowLocSymbolFw(WmcTft::color_white);
         m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
@@ -1047,7 +1047,7 @@ class menuLocFunctionsChange : public wmcApp
         m_locFunctionChange = 0;
         m_locAddressChange  = m_locLib.GetActualLocAddress();
         m_wmcTft.UpdateStatus("CHANGE FUNC", true, WmcTft::color_green);
-        m_wmcTft.ShowLocSymbolFw();
+        m_wmcTft.ShowLocSymbolFw(WmcTft::color_white);
         m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_green);
         m_wmcTft.FunctionAddUpdate(m_locFunctionChange);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
@@ -1159,7 +1159,7 @@ class menuLocDelete : public wmcApp
         m_wmcTft.Clear();
         m_locAddressDelete = m_locLib.GetActualLocAddress();
         m_wmcTft.UpdateStatus("DELETE", true, WmcTft::color_green);
-        m_wmcTft.ShowLocSymbolFw();
+        m_wmcTft.ShowLocSymbolFw(WmcTft::color_white);
         m_wmcTft.ShowlocAddress(m_locAddressDelete, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     }
