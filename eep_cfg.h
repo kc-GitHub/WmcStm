@@ -17,7 +17,7 @@
 class EepCfg
 {
 public:
-    static const uint8_t EepromVersion            = 2;   /* Version of data in EEPROM. */
+    static const uint8_t EepromVersion            = 3;   /* Version of data in EEPROM. */
     static const int EepromVersionAddress         = 1;   /* EEPROM address version info. */
     static const int SsidAddress                  = 2;   /* Address of Ssid name */
     static const int SsidPasswordAddress          = 60;  /* Address of Ssid password */
