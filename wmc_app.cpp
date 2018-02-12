@@ -197,6 +197,21 @@ class initUdpConnect : public wmcApp
 class initUdpConnectFail : public wmcApp
 {
     void entry() override { m_wmcTft.UdpConnectFailed(); }
+
+    /**
+     * Handle the response on the status message of the 3 seconds update event, control device might be enabled somewhat
+     * later.
+     */
+    void react(updateEvent50msec const&) override
+    {
+        switch (WmcCheckForDataRx())
+        {
+        case Z21Slave::trackPowerOff:
+        case Z21Slave::programmingMode:
+        case Z21Slave::trackPowerOn: transit<initBroadcast>(); break;
+        default: break;
+        }
+    };
 };
 
 /***********************************************************************************************************************
@@ -512,6 +527,11 @@ class powerOn : public wmcApp
             WmcCheckForDataTx();
             break;
         case button_0:
+            Function = m_locLib.FunctionAssignedGet(static_cast<uint8_t>(e.Button));
+            m_locLib.FunctionToggle(Function);
+            m_z21Slave.LanXSetLocoFunction(m_locLib.GetActualLocAddress(), Function, Z21Slave::toggle);
+            WmcCheckForDataTx();
+            break;
         case button_1:
         case button_2:
         case button_3:

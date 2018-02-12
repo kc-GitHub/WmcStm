@@ -134,8 +134,8 @@ protected:
     static Z21Slave::locInfo* m_WmcLocInfoReceived;
     static bool m_WmcLocSpeedRequestPending;
 
-    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 120;
-    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 10;
+    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 200;
+    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 20;
     static const uint16_t ADDRESS_TURNOUT_MIN              = 1;
     static const uint16_t ADDRESS_TURNOUT_MAX              = 9999;
     static const uint16_t ADDRESS_LOC_MIN                  = 1;
