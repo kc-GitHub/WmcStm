@@ -21,7 +21,7 @@
  **********************************************************************************************************************/
 
 /**
- *
+ * Status of the pulse switch.
  */
 enum pulseSwitchStatus
 {
@@ -33,16 +33,7 @@ enum pulseSwitchStatus
 };
 
 /**
- *
- */
-struct pulseSwitchEvent : tinyfsm::Event
-{
-    int8_t Delta;
-    pulseSwitchStatus Status;
-};
-
-/**
- *
+ * Definitions for the push buttons.
  */
 enum pushButtons
 {
@@ -57,34 +48,46 @@ enum pushButtons
 };
 
 /**
- *
+ * Pulse switch event.
  */
-struct pushButtonsEvent : tinyfsm::Event
+struct pulseSwitchEvent : tinyfsm::Event
 {
-    pushButtons Button;
+    int8_t Delta;             /* Delta of pulsw switch. */
+    pulseSwitchStatus Status; /* Status */
 };
 
 /**
- *
+ * Event for buttons.
+ */
+struct pushButtonsEvent : tinyfsm::Event
+{
+    pushButtons Button; /* Button which was pressed. */
+};
+
+/**
+ * 50msec Update event
  */
 struct updateEvent50msec : tinyfsm::Event
 {
 };
 
 /**
- *
+ * 500msec Update event
  */
 struct updateEvent500msec : tinyfsm::Event
 {
 };
 
 /**
- *
+ * 3 Seconds ipdate event
  */
 struct updateEvent3sec : tinyfsm::Event
 {
 };
 
+/**
+ * Data changed by command line interface event.
+ */
 struct cliEnterEvent : tinyfsm::Event
 {
 };
