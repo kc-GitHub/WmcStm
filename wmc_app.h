@@ -85,6 +85,10 @@ struct updateEvent3sec : tinyfsm::Event
 {
 };
 
+struct cliEnterEvent : tinyfsm::Event
+{
+};
+
 /***********************************************************************************************************************
  * C L A S S E S
  **********************************************************************************************************************/
@@ -95,6 +99,7 @@ public:
     /* default reaction for unhandled events */
     void react(tinyfsm::Event const&){};
 
+    virtual void react(cliEnterEvent const&);
     virtual void react(updateEvent3sec const&);
     virtual void react(pushButtonsEvent const&);
     virtual void react(pulseSwitchEvent const&);

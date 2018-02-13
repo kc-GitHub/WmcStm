@@ -36,6 +36,7 @@ class menuLocAdd;
 class menuLocFunctionsAdd;
 class menuLocFunctionsChange;
 class menuLocDelete;
+class commandLineInterfaceActive;
 
 /***********************************************************************************************************************
    D A T A   D E C L A R A T I O N S (exported, local)
@@ -1228,6 +1229,22 @@ class menuLocDelete : public wmcApp
 };
 
 /***********************************************************************************************************************
+ * Delete a loc.
+ */
+class commandLineInterfaceActive : public wmcApp
+{
+    /**
+     * Show delete screen.
+     */
+    void entry() override
+    {
+        m_wmcTft.Clear();
+        m_wmcTft.UpdateStatus("COMMAND LINE", true, WmcTft::color_green);
+        m_wmcTft.CommandLine();
+    };
+};
+
+/***********************************************************************************************************************
  * Default event handlers when not declared in states itself.
  */
 
@@ -1240,6 +1257,7 @@ void wmcApp::react(updateEvent3sec const&)
     m_z21Slave.LanGetStatus();
     WmcCheckForDataTx();
 };
+void wmcApp::react(cliEnterEvent const&) { transit<commandLineInterfaceActive>(); };
 
 /***********************************************************************************************************************
  * Initial state.
