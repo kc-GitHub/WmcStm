@@ -83,6 +83,9 @@ class setUpWifi : public wmcApp
         char SsidName[50];
         char SsidPassword[50];
 
+        memset(SsidName, '\0', sizeof(SsidName));
+        memset(SsidPassword, '\0', sizeof(SsidPassword));
+
         m_ConnectCnt = 0;
 
         m_wmcTft.Init();
@@ -95,8 +98,20 @@ class setUpWifi : public wmcApp
         EEPROM.get(EepCfg::SsidPasswordAddress, SsidPassword);
         EEPROM.get(EepCfg::EepIpAddress, m_IpAddres);
 
+        m_wmcTft.ShowNetworkName(SsidName);
+
+        /* Start wifi connection. */
         WiFi.mode(WIFI_STA);
-        WiFi.begin(SsidName, SsidPassword);
+
+        /* Check for password length, if no password connect with NULL. */
+        if (strlen(SsidPassword) == 0)
+        {
+            WiFi.begin(SsidName, NULL);
+        }
+        else
+        {
+            WiFi.begin(SsidName, SsidPassword);
+        }
     };
 
     /**
@@ -135,6 +150,10 @@ class setUpWifi : public wmcApp
 class setUpWifiFail : public wmcApp
 {
     void entry() override { m_wmcTft.WifiConnectFailed(); }
+
+    void react(updateEvent50msec const&) override{};
+    void react(updateEvent500msec const&) override{};
+    void react(updateEvent3sec const&) override{};
 };
 
 /***********************************************************************************************************************
@@ -1376,11 +1395,13 @@ void wmcApp::updateLocInfoOnScreen(bool updateAll)
             m_locFunctionAssignment[Index] = m_locLib.FunctionAssignedGet(Index);
         }
 
-        /* Invert functions so function symbols are updated if new loc is selected. */
+        /* Invert functions so function symbols are updated if new loc is selected and set new direction. */
         if (m_locSelection == true)
         {
             m_WmcLocInfoControl.Functions = ~m_WmcLocInfoReceived->Functions;
             m_locSelection                = false;
+
+            m_WmcLocInfoControl.Direction = m_WmcLocInfoReceived->Direction;
         }
 
         m_wmcTft.UpdateLocInfo(m_WmcLocInfoReceived, &m_WmcLocInfoControl, m_locFunctionAssignment, updateAll);
