@@ -167,6 +167,7 @@ class initUdpConnect : public wmcApp
     void entry()
     {
         m_ConnectCnt = 0;
+        m_wmcTft.ClearNetworkName();
         m_wmcTft.UpdateStatus("Connect to Control", true, WmcTft::color_yellow);
         m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
         m_WifiUdp.begin(m_UdpLocalPort);
