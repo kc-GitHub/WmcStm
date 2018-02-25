@@ -333,6 +333,16 @@ class initLocInfoGet : public wmcApp
             m_wmcTft.Clear();
             updateLocInfoOnScreen(true);
             m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
+
+            if (m_WmcLocInfoReceived->Direction == Z21Slave::locDirectionForward)
+            {
+                m_locLib.DirectionSet(LocLib::directionForward);
+            }
+            else
+            {
+                m_locLib.DirectionSet(LocLib::directionBackWard);
+            }
+
             if (m_TrackPower == false)
             {
                 transit<powerOff>();
@@ -390,6 +400,15 @@ class powerOff : public wmcApp
         case Z21Slave::locinfo:
             updateLocInfoOnScreen(false);
             m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
+
+            if (m_WmcLocInfoReceived->Direction == Z21Slave::locDirectionForward)
+            {
+                m_locLib.DirectionSet(LocLib::directionForward);
+            }
+            else
+            {
+                m_locLib.DirectionSet(LocLib::directionBackWard);
+            }
             break;
         default: break;
         }
@@ -474,6 +493,14 @@ class powerOn : public wmcApp
             updateLocInfoOnScreen(false);
             m_WmcLocSpeedRequestPending = false;
             m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
+            if (m_WmcLocInfoReceived->Direction == Z21Slave::locDirectionForward)
+            {
+                m_locLib.DirectionSet(LocLib::directionForward);
+            }
+            else
+            {
+                m_locLib.DirectionSet(LocLib::directionBackWard);
+            }
             break;
         default: break;
         }
@@ -1401,8 +1428,6 @@ void wmcApp::updateLocInfoOnScreen(bool updateAll)
         {
             m_WmcLocInfoControl.Functions = ~m_WmcLocInfoReceived->Functions;
             m_locSelection                = false;
-
-            m_WmcLocInfoControl.Direction = m_WmcLocInfoReceived->Direction;
         }
 
         m_wmcTft.UpdateLocInfo(m_WmcLocInfoReceived, &m_WmcLocInfoControl, m_locFunctionAssignment, updateAll);
