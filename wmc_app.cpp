@@ -48,7 +48,10 @@ LocLib wmcApp::m_locLib;
 WiFiUDP wmcApp::m_WifiUdp;
 Z21Slave wmcApp::m_z21Slave;
 bool wmcApp::m_locSelection;
-uint8_t wmcApp::m_IpAddres[4];
+uint8_t wmcApp::m_IpAddresZ21[4];
+uint8_t wmcApp::m_IpAddresWmc[4];
+uint8_t wmcApp::m_IpGateway[4];
+uint8_t wmcApp::m_IpSubnet[4];
 bool wmcApp::m_TrackPower = false;
 byte wmcApp::m_WmcPacketBuffer[40];
 uint16_t wmcApp::m_ConnectCnt                = 0;
@@ -82,12 +85,14 @@ class setUpWifi : public wmcApp
     {
         char SsidName[50];
         char SsidPassword[50];
+        uint8_t StaticIp = 0;
 
         memset(SsidName, '\0', sizeof(SsidName));
         memset(SsidPassword, '\0', sizeof(SsidPassword));
 
         m_ConnectCnt = 0;
 
+        /* Init modules. */
         m_wmcTft.Init();
         m_locLib.Init();
         m_wmcTft.UpdateStatus("Connecting to Wifi", true, WmcTft::color_yellow);
@@ -96,12 +101,28 @@ class setUpWifi : public wmcApp
         /* Get SSID data from EEPROM. */
         EEPROM.get(EepCfg::SsidAddress, SsidName);
         EEPROM.get(EepCfg::SsidPasswordAddress, SsidPassword);
-        EEPROM.get(EepCfg::EepIpAddress, m_IpAddres);
+
+        /* Get IP data. */
+        EEPROM.get(EepCfg::EepIpSubnet, m_IpSubnet);
+        EEPROM.get(EepCfg::EepIpGateway, m_IpGateway);
+        EEPROM.get(EepCfg::EepIpAddressWmc, m_IpAddresWmc);
+        EEPROM.get(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
+        StaticIp = EEPROM.read(EepCfg::StaticIpAddress);
 
         m_wmcTft.ShowNetworkName(SsidName);
 
         /* Start wifi connection. */
         WiFi.mode(WIFI_STA);
+
+        /* If static IP active set fixed IP settings for static IP. */
+        if (StaticIp == 1)
+        {
+            IPAddress ip(m_IpAddresWmc[0], m_IpAddresWmc[1], m_IpAddresWmc[2], m_IpAddresWmc[3]);
+            IPAddress gateway(m_IpGateway[0], m_IpGateway[1], m_IpGateway[2], m_IpGateway[3]);
+            IPAddress subnet(m_IpSubnet[0], m_IpSubnet[1], m_IpSubnet[2], m_IpSubnet[3]);
+
+            WiFi.config(ip, gateway, subnet);
+        }
 
         /* Check for password length, if no password connect with NULL. */
         if (strlen(SsidPassword) == 0)
@@ -1372,7 +1393,7 @@ Z21Slave::dataType wmcApp::WmcCheckForDataRx(void)
 void wmcApp::WmcCheckForDataTx(void)
 {
     uint8_t* DataTransmitPtr;
-    IPAddress WmcUdpIp(m_IpAddres[0], m_IpAddres[1], m_IpAddres[2], m_IpAddres[3]);
+    IPAddress WmcUdpIp(m_IpAddresZ21[0], m_IpAddresZ21[1], m_IpAddresZ21[2], m_IpAddresZ21[3]);
 
 #if WMC_APP_DEBUG_TX_RX == 1
     uint8_t Index;

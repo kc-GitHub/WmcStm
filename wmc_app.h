@@ -126,7 +126,10 @@ protected:
     static Z21Slave m_z21Slave;
     static bool m_locSelection;
     static uint16_t m_ConnectCnt;
-    static uint8_t m_IpAddres[4];
+    static uint8_t m_IpAddresZ21[4];
+    static uint8_t m_IpAddresWmc[4];
+    static uint8_t m_IpGateway[4];
+    static uint8_t m_IpSubnet[4];
     static uint16_t m_UdpLocalPort;
     static uint16_t m_locAddressAdd;
     static uint16_t m_TurnOutAddress;
