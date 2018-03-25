@@ -10,87 +10,16 @@
 /***********************************************************************************************************************
  * I N C L U D E S
  **********************************************************************************************************************/
+#include "WmcTft.h"
+#include "Z21Slave.h"
+#include "wmc_event.h"
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
-#include <WmcTft.h>
-#include <Z21Slave.h>
 #include <tinyfsm.hpp>
 
 /***********************************************************************************************************************
  * T Y P E D  E F S  /  E N U M
  **********************************************************************************************************************/
-
-/**
- * Status of the pulse switch.
- */
-enum pulseSwitchStatus
-{
-    turn = 0,
-    pushturn,
-    pushedShort,
-    pushedNormal,
-    pushedlong,
-};
-
-/**
- * Definitions for the push buttons.
- */
-enum pushButtons
-{
-    button_0 = 0,
-    button_1,
-    button_2,
-    button_3,
-    button_4,
-    button_5,
-    button_power,
-    button_none
-};
-
-/**
- * Pulse switch event.
- */
-struct pulseSwitchEvent : tinyfsm::Event
-{
-    int8_t Delta;             /* Delta of pulsw switch. */
-    pulseSwitchStatus Status; /* Status */
-};
-
-/**
- * Event for buttons.
- */
-struct pushButtonsEvent : tinyfsm::Event
-{
-    pushButtons Button; /* Button which was pressed. */
-};
-
-/**
- * 50msec Update event
- */
-struct updateEvent50msec : tinyfsm::Event
-{
-};
-
-/**
- * 500msec Update event
- */
-struct updateEvent500msec : tinyfsm::Event
-{
-};
-
-/**
- * 3 Seconds ipdate event
- */
-struct updateEvent3sec : tinyfsm::Event
-{
-};
-
-/**
- * Data changed by command line interface event.
- */
-struct cliEnterEvent : tinyfsm::Event
-{
-};
 
 /***********************************************************************************************************************
  * C L A S S E S

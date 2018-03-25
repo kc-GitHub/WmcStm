@@ -9,6 +9,7 @@
 #include "wmc_app.h"
 #include "eep_cfg.h"
 #include "fsmlist.hpp"
+#include "wmc_event.h"
 #include <EEPROM.h>
 #include <tinyfsm.hpp>
 
