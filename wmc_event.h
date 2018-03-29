@@ -44,6 +44,17 @@ enum pushButtons
 };
 
 /**
+ * CV programming module events.
+ */
+enum cvProgRequest
+{
+    cvRead = 0,
+    cvWrite,
+    pomWrite,
+    cvExit,
+};
+
+/**
  * Pulse switch event.
  */
 struct pulseSwitchEvent : tinyfsm::Event
@@ -86,6 +97,17 @@ struct updateEvent3sec : tinyfsm::Event
  */
 struct cliEnterEvent : tinyfsm::Event
 {
+};
+
+/**
+ * CV programming events from cv module.
+ */
+struct cvProgEvent : tinyfsm::Event
+{
+    cvProgRequest Request;
+    uint16_t Address;
+    uint16_t CvNumber;
+    uint8_t CvValue;
 };
 
 /***********************************************************************************************************************

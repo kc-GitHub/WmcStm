@@ -9,6 +9,7 @@
 #include "wmc_app.h"
 #include "eep_cfg.h"
 #include "fsmlist.hpp"
+#include "wmc_cv.h"
 #include "wmc_event.h"
 #include <EEPROM.h>
 #include <tinyfsm.hpp>
@@ -38,6 +39,7 @@ class menuLocFunctionsAdd;
 class menuLocFunctionsChange;
 class menuLocDelete;
 class commandLineInterfaceActive;
+class cvProgramming;
 
 /***********************************************************************************************************************
    D A T A   D E C L A R A T I O N S (exported, local)
@@ -97,7 +99,7 @@ class setUpWifi : public wmcApp
         m_wmcTft.Init();
         m_locLib.Init();
         m_wmcTft.UpdateStatus("Connecting to Wifi", true, WmcTft::color_yellow);
-        m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
+        m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
 
         /* Get SSID data from EEPROM. */
         EEPROM.get(EepCfg::SsidAddress, SsidName);
@@ -146,7 +148,7 @@ class setUpWifi : public wmcApp
             m_ConnectCnt++;
             if (m_ConnectCnt < CONNECT_CNT_MAX_FAIL_CONNECT_WIFI)
             {
-                m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
+                m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
             }
             else
             {
@@ -191,7 +193,7 @@ class initUdpConnect : public wmcApp
         m_ConnectCnt = 0;
         m_wmcTft.ClearNetworkName();
         m_wmcTft.UpdateStatus("Connect to Control", true, WmcTft::color_yellow);
-        m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
+        m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
         m_WifiUdp.begin(m_UdpLocalPort);
     }
 
@@ -206,7 +208,7 @@ class initUdpConnect : public wmcApp
         {
             m_z21Slave.LanGetStatus();
             WmcCheckForDataTx();
-            m_wmcTft.WifiConnectUpdate(m_ConnectCnt);
+            m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
         }
         else
         {
@@ -929,7 +931,7 @@ class mainMenu : public wmcApp
         case button_1: transit<menuLocAdd>(); break;
         case button_2: transit<menuLocFunctionsChange>(); break;
         case button_3: transit<menuLocDelete>(); break;
-        case button_4:
+        case button_4: transit<cvProgramming>(); break;
         case button_power: transit<initLocInfoGet>(); break;
         default: break;
         }
@@ -1298,7 +1300,7 @@ class menuLocDelete : public wmcApp
 };
 
 /***********************************************************************************************************************
- * Delete a loc.
+ * Command lie interface active state.
  */
 class commandLineInterfaceActive : public wmcApp
 {
@@ -1311,6 +1313,145 @@ class commandLineInterfaceActive : public wmcApp
         m_wmcTft.UpdateStatus("COMMAND LINE", true, WmcTft::color_green);
         m_wmcTft.CommandLine();
     };
+};
+
+/***********************************************************************************************************************
+ * CV programming main state.
+ */
+class cvProgramming : public wmcApp
+{
+    /**
+     * Show delete screen.
+     */
+    void entry() override
+    {
+        cvEvent EventCv;
+        m_wmcTft.Clear();
+        m_wmcTft.UpdateStatus("CV programming", true, WmcTft::color_green);
+
+        EventCv.EventData = start;
+        send_event(EventCv);
+    };
+
+    /**
+     * Handle received data.
+     */
+    void react(updateEvent50msec const&) override
+    {
+        cvEvent EventCv;
+
+        switch (WmcCheckForDataRx())
+        {
+        case Z21Slave::trackPowerOff: break;
+        case Z21Slave::trackPowerOn:
+            m_TrackPower = true;
+            transit<initLocInfoGet>();
+            break;
+        case Z21Slave::programmingCvNackSc:
+        {
+            EventCv.EventData = cvNack;
+            send_event(EventCv);
+        }
+        break;
+        case Z21Slave::programmingCvResult:
+        {
+            Z21Slave::cvData* cvDataPtr;
+
+            cvDataPtr = m_z21Slave.LanXCvResult();
+
+            EventCv.EventData = cvData;
+            EventCv.cvNumber  = cvDataPtr->Number;
+            EventCv.cvValue   = cvDataPtr->Value;
+            send_event(EventCv);
+        }
+        break;
+        default: break;
+        }
+    };
+
+    /**
+     * Handle pulse switch events.
+     */
+    void react(pulseSwitchEvent const& e) override
+    {
+        cvpulseSwitchEvent Event;
+
+        switch (e.Status)
+        {
+        case pushturn:
+        case turn:
+        case pushedShort:
+        case pushedNormal:
+            /* Forward event */
+            Event.EventData.Delta  = e.Delta;
+            Event.EventData.Status = e.Status;
+            send_event(Event);
+            break;
+        default: break;
+        }
+    };
+
+    void react(updateEvent500msec const&) override
+    {
+        cvEvent EventCv;
+        EventCv.EventData = update;
+        send_event(EventCv);
+    }
+
+    /**
+     * Handle button events.
+     */
+    void react(pushButtonsEvent const& e) override
+    {
+        cvpushButtonEvent Event;
+        cvEvent EventCv;
+
+        /* Handle menu request. */
+        switch (e.Button)
+        {
+        case button_1:
+        case button_2:
+        case button_3:
+        case button_4:
+        case button_5:
+            /* Forward event.*/
+            Event.EventData.Button = e.Button;
+            send_event(Event);
+            break;
+        case button_power:
+            EventCv.EventData = stop;
+            send_event(EventCv);
+            transit<mainMenu>();
+            break;
+        default: break;
+        }
+    };
+
+    /**
+     * Handle events from the cv state machine.
+     */
+    void react(cvProgEvent const& e) override
+    {
+        cvEvent EventCv;
+
+        switch (e.Request)
+        {
+        case cvRead:
+            m_z21Slave.LanCvRead(e.CvNumber);
+            WmcCheckForDataTx();
+            break;
+        case cvWrite:
+            m_z21Slave.LanCvWrite(e.CvNumber, e.CvValue);
+            WmcCheckForDataTx();
+            break;
+        case pomWrite: break;
+        case cvExit:
+            EventCv.EventData = stop;
+            send_event(EventCv);
+            transit<mainMenu>();
+            break;
+        }
+    }
 };
 
 /***********************************************************************************************************************
@@ -1327,6 +1468,7 @@ void wmcApp::react(updateEvent3sec const&)
     WmcCheckForDataTx();
 };
 void wmcApp::react(cliEnterEvent const&) { transit<commandLineInterfaceActive>(); };
+void wmcApp::react(cvProgEvent const&){};
 
 /***********************************************************************************************************************
  * Initial state.

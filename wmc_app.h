@@ -31,6 +31,7 @@ public:
     /* default reaction for unhandled events */
     void react(tinyfsm::Event const&){};
 
+    virtual void react(cvProgEvent const&);
     virtual void react(cliEnterEvent const&);
     virtual void react(updateEvent3sec const&);
     virtual void react(pushButtonsEvent const&);
