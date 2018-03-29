@@ -1349,40 +1349,51 @@ class cvProgramming : public wmcApp
     };
 
     /**
-     * Handle received data.
+     * Handle received Z21 data.
      */
     void react(updateEvent50msec const&) override
     {
         cvEvent EventCv;
+        Z21Slave::cvData* cvDataPtr = NULL;
 
         switch (WmcCheckForDataRx())
         {
-        case Z21Slave::trackPowerOff: break;
+        case Z21Slave::trackPowerOff:
+            m_TrackPower      = false;
+            EventCv.EventData = stop;
+            send_event(EventCv);
+            transit<initLocInfoGet>();
+            break;
         case Z21Slave::trackPowerOn:
-            m_TrackPower = true;
+            m_TrackPower      = true;
+            EventCv.EventData = stop;
+            send_event(EventCv);
             transit<initLocInfoGet>();
             break;
         case Z21Slave::programmingCvNackSc:
-        {
             EventCv.EventData = cvNack;
             send_event(EventCv);
-        }
-        break;
+            break;
         case Z21Slave::programmingCvResult:
-        {
-            Z21Slave::cvData* cvDataPtr;
-
             cvDataPtr = m_z21Slave.LanXCvResult();
 
             EventCv.EventData = cvData;
             EventCv.cvNumber  = cvDataPtr->Number;
             EventCv.cvValue   = cvDataPtr->Value;
             send_event(EventCv);
-        }
-        break;
+            break;
         default: break;
         }
     };
+
+    /**
+     * Keep alive by requesting loc status. Requesting power system status forces the CV mode back to normal mode...
+     */
+    void react(updateEvent3sec const&) override
+    {
+        m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
+        WmcCheckForDataTx();
+    }
 
     /**
      * Handle pulse switch events.
