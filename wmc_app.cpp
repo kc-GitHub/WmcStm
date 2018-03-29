@@ -921,6 +921,21 @@ class mainMenu : public wmcApp
     void entry() override { m_wmcTft.ShowMenu(); };
 
     /**
+     * Handle pulse switch events.
+     */
+    void react(pulseSwitchEvent const& e) override
+    {
+        switch (e.Status)
+        {
+        case turn:
+        case pushturn: break;
+        case pushedShort:
+        case pushedNormal:
+        case pushedlong: transit<initLocInfoGet>(); break;
+        }
+    }
+
+    /**
      * Handle switch events.
      */
     void react(pushButtonsEvent const& e) override
