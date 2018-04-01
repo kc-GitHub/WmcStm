@@ -68,6 +68,7 @@ uint8_t wmcApp::m_locFunctionChange          = 0;
 uint16_t wmcApp::m_locAddressDelete          = 0;
 uint16_t wmcApp::m_locAddressChange          = 0;
 bool wmcApp::m_WmcLocSpeedRequestPending     = false;
+bool wmcApp::m_CvPomProgramming              = false;
 uint8_t wmcApp::m_locFunctionAssignment[5];
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
 Z21Slave::locInfo* wmcApp::m_WmcLocInfoReceived = NULL;
@@ -481,6 +482,11 @@ class powerOff : public wmcApp
                     m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
                 m_locSelection = true;
             }
+            break;
+        case pushedShort:
+            /* Power on request. */
+            m_z21Slave.LanSetTrackPowerOn();
+            WmcCheckForDataTx();
             break;
         case pushedlong: transit<mainMenu>(); break;
         default: break;
@@ -918,7 +924,12 @@ class mainMenu : public wmcApp
     /**
      * Show menu on screen.
      */
-    void entry() override { m_wmcTft.ShowMenu(); };
+    void entry() override
+    {
+        m_wmcTft.ShowMenu();
+        m_z21Slave.LanSetTrackPowerOff();
+        WmcCheckForDataTx();
+    };
 
     /**
      * Handle pulse switch events.
@@ -931,7 +942,7 @@ class mainMenu : public wmcApp
         case pushturn: break;
         case pushedShort:
         case pushedNormal:
-        case pushedlong: transit<initLocInfoGet>(); break;
+        case pushedlong: transit<initStatusGet>(); break;
         }
     }
 
@@ -946,8 +957,15 @@ class mainMenu : public wmcApp
         case button_1: transit<menuLocAdd>(); break;
         case button_2: transit<menuLocFunctionsChange>(); break;
         case button_3: transit<menuLocDelete>(); break;
-        case button_4: transit<cvProgramming>(); break;
-        case button_power: transit<initLocInfoGet>(); break;
+        case button_4:
+            m_CvPomProgramming = false;
+            transit<cvProgramming>();
+            break;
+        case button_5:
+            m_CvPomProgramming = true;
+            transit<cvProgramming>();
+            break;
+        case button_power: transit<initStatusGet>(); break;
         default: break;
         }
     };
@@ -1342,9 +1360,19 @@ class cvProgramming : public wmcApp
     {
         cvEvent EventCv;
         m_wmcTft.Clear();
-        m_wmcTft.UpdateStatus("CV programming", true, WmcTft::color_green);
+        if (m_CvPomProgramming == false)
+        {
+            EventCv.EventData = startCv;
+            m_wmcTft.UpdateStatus("CV programming", true, WmcTft::color_green);
+        }
+        else
+        {
+            EventCv.EventData = startPom;
+            m_wmcTft.UpdateStatus("POM programming", true, WmcTft::color_green);
+            m_z21Slave.LanSetTrackPowerOn();
+            WmcCheckForDataTx();
+        }
 
-        EventCv.EventData = start;
         send_event(EventCv);
     };
 
@@ -1365,10 +1393,13 @@ class cvProgramming : public wmcApp
             transit<initLocInfoGet>();
             break;
         case Z21Slave::trackPowerOn:
-            m_TrackPower      = true;
-            EventCv.EventData = stop;
-            send_event(EventCv);
-            transit<initLocInfoGet>();
+            if (m_CvPomProgramming == false)
+            {
+                m_TrackPower      = true;
+                EventCv.EventData = stop;
+                send_event(EventCv);
+                transit<initLocInfoGet>();
+            }
             break;
         case Z21Slave::programmingCvNackSc:
             EventCv.EventData = cvNack;
@@ -1470,7 +1501,10 @@ class cvProgramming : public wmcApp
             m_z21Slave.LanCvWrite(e.CvNumber, e.CvValue);
             WmcCheckForDataTx();
             break;
-        case pomWrite: break;
+        case pomWrite:
+            m_z21Slave.LanXCvPomWriteByte(e.Address, e.CvNumber, e.CvValue);
+            WmcCheckForDataTx();
+            break;
         case cvExit:
             EventCv.EventData = stop;
             send_event(EventCv);
@@ -1575,7 +1609,7 @@ void wmcApp::WmcCheckForDataTx(void)
 #if WMC_APP_DEBUG_TX_RX == 1
         Serial.print("TX : ");
 
-        for (Index = 1; Index < DataTransmitPtr[0]; Index++)
+        for (Index = 0; Index < DataTransmitPtr[0]; Index++)
         {
             Serial.print(DataTransmitPtr[Index], HEX);
             Serial.print(" ");
