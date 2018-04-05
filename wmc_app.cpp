@@ -770,6 +770,7 @@ class turnoutControl : public wmcApp
             updateScreen     = true;
             break;
         case pushedNormal:
+        case pushedlong:
             /* Back to loc control. */
             transit<initStatusGet>();
             break;
