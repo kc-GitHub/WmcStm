@@ -69,6 +69,7 @@ uint16_t wmcApp::m_locAddressDelete          = 0;
 uint16_t wmcApp::m_locAddressChange          = 0;
 bool wmcApp::m_WmcLocSpeedRequestPending     = false;
 bool wmcApp::m_CvPomProgramming              = false;
+bool wmcApp::m_CvPomProgrammingFromPowerOn   = false;
 uint8_t wmcApp::m_locFunctionAssignment[5];
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
 Z21Slave::locInfo* wmcApp::m_WmcLocInfoReceived = NULL;
@@ -588,7 +589,11 @@ class powerOn : public wmcApp
             m_locLib.DirectionToggle();
             PrepareLanXSetLocoDriveAndTransmit();
             break;
-        default: break;
+        case pushedlong:
+            m_CvPomProgramming            = true;
+            m_CvPomProgrammingFromPowerOn = true;
+            transit<cvProgramming>();
+            break;
         }
     };
 
@@ -1393,7 +1398,7 @@ class cvProgramming : public wmcApp
             transit<initLocInfoGet>();
             break;
         case Z21Slave::trackPowerOn:
-            if (m_CvPomProgramming == false)
+            if ((m_CvPomProgramming == false) || (m_CvPomProgrammingFromPowerOn == true))
             {
                 m_TrackPower      = true;
                 EventCv.EventData = stop;
@@ -1478,7 +1483,15 @@ class cvProgramming : public wmcApp
         case button_power:
             EventCv.EventData = stop;
             send_event(EventCv);
-            transit<mainMenu>();
+            if (m_CvPomProgrammingFromPowerOn == false)
+            {
+                transit<mainMenu>();
+            }
+            else
+            {
+                m_z21Slave.LanSetTrackPowerOn();
+                WmcCheckForDataTx();
+            }
             break;
         default: break;
         }
@@ -1508,10 +1521,22 @@ class cvProgramming : public wmcApp
         case cvExit:
             EventCv.EventData = stop;
             send_event(EventCv);
-            transit<mainMenu>();
+            if (m_CvPomProgrammingFromPowerOn == false)
+            {
+                transit<mainMenu>();
+            }
+            else
+            {
+                transit<initLocInfoGet>();
+            }
             break;
         }
     }
+
+    /**
+     * Exit handler.
+     */
+    void exit() override { m_CvPomProgrammingFromPowerOn = false; };
 };
 
 /***********************************************************************************************************************

@@ -75,6 +75,7 @@ protected:
     static Z21Slave::locInfo* m_WmcLocInfoReceived;
     static bool m_WmcLocSpeedRequestPending;
     static bool m_CvPomProgramming;
+    static bool m_CvPomProgrammingFromPowerOn;
 
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 200;
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 20;
