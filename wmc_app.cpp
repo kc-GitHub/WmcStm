@@ -17,7 +17,7 @@
 /***********************************************************************************************************************
    D E F I N E S
  **********************************************************************************************************************/
-#define WMC_APP_DEBUG_TX_RX 0
+#define WMC_APP_DEBUG_TX_RX 1
 
 /***********************************************************************************************************************
    F O R W A R D  D E C L A R A T I O N S
@@ -73,6 +73,7 @@ bool wmcApp::m_CvPomProgrammingFromPowerOn   = false;
 uint8_t wmcApp::m_locFunctionAssignment[5];
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
 Z21Slave::locInfo* wmcApp::m_WmcLocInfoReceived = NULL;
+Z21Slave::locLibData* wmcApp::m_WmcLocLibInfo   = NULL;
 
 /***********************************************************************************************************************
   F U N C T I O N S
@@ -436,6 +437,26 @@ class powerOff : public wmcApp
                 m_locLib.DirectionSet(LocLib::directionBackWard);
             }
             break;
+        case Z21Slave::locLibraryData:
+        {
+            uint8_t locFunctionAssignment[5] = { 0, 1, 2, 3, 4 };
+
+            m_WmcLocLibInfo = m_z21Slave.LanXLocLibData();
+
+            if (m_locLib.CheckLoc(m_WmcLocLibInfo->Address) == 255)
+            {
+                m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, LocLib::storeAdd);
+                m_wmcTft.UpdateSelectedAndNumberOfLocs(
+                    m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
+
+                /* If all locs received sort... */
+                if (m_WmcLocLibInfo->Actual == m_WmcLocLibInfo->Total)
+                {
+                    m_locLib.LocBubbleSort();
+                }
+            }
+        }
+        break;
         default: break;
         }
     }
@@ -533,6 +554,21 @@ class powerOn : public wmcApp
                 m_locLib.DirectionSet(LocLib::directionBackWard);
             }
             break;
+        case Z21Slave::locLibraryData:
+        {
+            uint8_t locFunctionAssignment[5] = { 0, 1, 2, 3, 4 };
+
+            m_WmcLocLibInfo = m_z21Slave.LanXLocLibData();
+
+            if (m_locLib.CheckLoc(m_WmcLocLibInfo->Address) != 255)
+            {
+                m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, LocLib::storeAdd);
+                m_locLib.LocBubbleSort();
+                m_wmcTft.UpdateSelectedAndNumberOfLocs(
+                    m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
+            }
+        }
+        break;
         default: break;
         }
     };

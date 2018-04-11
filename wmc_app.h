@@ -73,6 +73,7 @@ protected:
     static uint8_t m_locFunctionAssignment[5];
     static Z21Slave::locInfo m_WmcLocInfoControl;
     static Z21Slave::locInfo* m_WmcLocInfoReceived;
+    static Z21Slave::locLibData* m_WmcLocLibInfo;
     static bool m_WmcLocSpeedRequestPending;
     static bool m_CvPomProgramming;
     static bool m_CvPomProgrammingFromPowerOn;
