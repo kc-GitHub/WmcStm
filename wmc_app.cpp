@@ -50,6 +50,8 @@ WmcTft wmcApp::m_wmcTft;
 LocLib wmcApp::m_locLib;
 WiFiUDP wmcApp::m_WifiUdp;
 Z21Slave wmcApp::m_z21Slave;
+WmcCli wmcApp::m_WmcCommandLine;
+LocStorage wmcApp::m_LocStorage;
 bool wmcApp::m_locSelection;
 uint8_t wmcApp::m_IpAddresZ21[4];
 uint8_t wmcApp::m_IpAddresWmc[4];
@@ -100,7 +102,9 @@ class setUpWifi : public wmcApp
 
         /* Init modules. */
         m_wmcTft.Init();
-        m_locLib.Init();
+        m_LocStorage.Init();
+        m_locLib.Init(m_LocStorage);
+        m_WmcCommandLine.Init(m_locLib, m_LocStorage);
         m_wmcTft.UpdateStatus("Connecting to Wifi", true, WmcTft::color_yellow);
         m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
 
@@ -345,6 +349,7 @@ class initLocInfoGet : public wmcApp
      */
     void entry() override
     {
+        /* Get loc data. */
         m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
         WmcCheckForDataTx();
     };
@@ -358,25 +363,27 @@ class initLocInfoGet : public wmcApp
         {
         case Z21Slave::locinfo:
             m_wmcTft.Clear();
-            updateLocInfoOnScreen(true);
-            m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
+            if (updateLocInfoOnScreen(true) == true)
+            {
+                m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
 
-            if (m_WmcLocInfoReceived->Direction == Z21Slave::locDirectionForward)
-            {
-                m_locLib.DirectionSet(LocLib::directionForward);
-            }
-            else
-            {
-                m_locLib.DirectionSet(LocLib::directionBackWard);
-            }
+                if (m_WmcLocInfoReceived->Direction == Z21Slave::locDirectionForward)
+                {
+                    m_locLib.DirectionSet(directionForward);
+                }
+                else
+                {
+                    m_locLib.DirectionSet(directionBackWard);
+                }
 
-            if (m_TrackPower == false)
-            {
-                transit<powerOff>();
-            }
-            else
-            {
-                transit<powerOn>();
+                if (m_TrackPower == false)
+                {
+                    transit<powerOff>();
+                }
+                else
+                {
+                    transit<powerOn>();
+                }
             }
             break;
         default: break;
@@ -430,11 +437,11 @@ class powerOff : public wmcApp
 
             if (m_WmcLocInfoReceived->Direction == Z21Slave::locDirectionForward)
             {
-                m_locLib.DirectionSet(LocLib::directionForward);
+                m_locLib.DirectionSet(directionForward);
             }
             else
             {
-                m_locLib.DirectionSet(LocLib::directionBackWard);
+                m_locLib.DirectionSet(directionBackWard);
             }
             break;
         case Z21Slave::locLibraryData:
@@ -547,11 +554,11 @@ class powerOn : public wmcApp
             m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
             if (m_WmcLocInfoReceived->Direction == Z21Slave::locDirectionForward)
             {
-                m_locLib.DirectionSet(LocLib::directionForward);
+                m_locLib.DirectionSet(directionForward);
             }
             else
             {
-                m_locLib.DirectionSet(LocLib::directionBackWard);
+                m_locLib.DirectionSet(directionBackWard);
             }
             break;
         case Z21Slave::locLibraryData:
@@ -671,7 +678,7 @@ class powerOn : public wmcApp
             m_wmcTft.Clear();
             transit<turnoutControl>();
             break;
-        default: break;
+        case button_none: break;
         }
     };
 };
@@ -715,13 +722,19 @@ class powerProgrammingMode : public wmcApp
             m_z21Slave.LanSetTrackPowerOff();
             WmcCheckForDataTx();
             break;
-        default: break;
+        case button_0:
+        case button_1:
+        case button_2:
+        case button_3:
+        case button_4:
+        case button_5:
+        case button_none: break;
         }
     };
 };
 
 /***********************************************************************************************************************
- * Show main menu and handle the request.
+ * Turnout control.
  */
 class turnoutControl : public wmcApp
 {
@@ -984,7 +997,10 @@ class mainMenu : public wmcApp
         case pushturn: break;
         case pushedShort:
         case pushedNormal:
-        case pushedlong: transit<initStatusGet>(); break;
+        case pushedlong:
+            m_locSelection = true;
+            transit<initStatusGet>();
+            break;
         }
     }
 
@@ -996,7 +1012,10 @@ class mainMenu : public wmcApp
         /* Handle menu request. */
         switch (e.Button)
         {
-        case button_1: transit<menuLocAdd>(); break;
+        case button_1:
+            m_locAddressAdd = m_locLib.GetActualLocAddress();
+            transit<menuLocAdd>();
+            break;
         case button_2: transit<menuLocFunctionsChange>(); break;
         case button_3: transit<menuLocDelete>(); break;
         case button_4:
@@ -1007,8 +1026,12 @@ class mainMenu : public wmcApp
             m_CvPomProgramming = true;
             transit<cvProgramming>();
             break;
-        case button_power: transit<initStatusGet>(); break;
-        default: break;
+        case button_power:
+            m_locSelection = true;
+            transit<initStatusGet>();
+            break;
+        case button_0:
+        case button_none: break;
         }
     };
 };
@@ -1023,8 +1046,6 @@ class menuLocAdd : public wmcApp
      */
     void entry() override
     {
-        m_locAddressAdd = m_locLib.GetActualLocAddress();
-
         // Show loc add screen.
         m_wmcTft.Clear();
         m_wmcTft.UpdateStatus("ADD LOC", true, WmcTft::color_green);
@@ -1045,13 +1066,13 @@ class menuLocAdd : public wmcApp
             if (e.Delta > 0)
             {
                 m_locAddressAdd++;
-                m_locAddressAdd = limitLocAddress(m_locAddressAdd);
+                m_locAddressAdd = m_locLib.limitLocAddress(m_locAddressAdd);
                 m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_green);
             }
             else if (e.Delta < 0)
             {
                 m_locAddressAdd--;
-                m_locAddressAdd = limitLocAddress(m_locAddressAdd);
+                m_locAddressAdd = m_locLib.limitLocAddress(m_locAddressAdd);
                 m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_green);
             }
             break;
@@ -1081,22 +1102,33 @@ class menuLocAdd : public wmcApp
 
         switch (e.Button)
         {
-        case button_0: m_locAddressAdd = 1; break;
-        case button_1: m_locAddressAdd++; break;
-        case button_2: m_locAddressAdd += 10; break;
-        case button_3: m_locAddressAdd += 100; break;
-        case button_4: m_locAddressAdd += 1000; break;
+        case button_0: m_locAddressAdd++; break;
+        case button_1: m_locAddressAdd += 10; break;
+        case button_2: m_locAddressAdd += 100; break;
+        case button_3: m_locAddressAdd += 1000; break;
+        case button_4: m_locAddressAdd = 1; break;
+        case button_5:
+            /* If loc is not present goto add functions else red address indicating loc already present. */
+            if (m_locLib.CheckLoc(m_locAddressAdd) != 255)
+            {
+                updateScreen = false;
+                m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_red);
+            }
+            else
+            {
+                transit<menuLocFunctionsAdd>();
+            }
+            break;
         case button_power:
             updateScreen = false;
             transit<mainMenu>();
             break;
-        case button_5:
-        default: updateScreen = false; break;
+        case button_none: updateScreen = false; break;
         }
 
         if (updateScreen == true)
         {
-            m_locAddressAdd = limitLocAddress(m_locAddressAdd);
+            m_locAddressAdd = m_locLib.limitLocAddress(m_locAddressAdd);
             m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_green);
         }
     };
@@ -1143,7 +1175,7 @@ class menuLocFunctionsAdd : public wmcApp
                 }
                 m_wmcTft.FunctionAddUpdate(m_locFunctionAdd);
             }
-            else if (e.Delta > 0)
+            else if (e.Delta < 0)
             {
                 if (m_locFunctionAdd == FUNCTION_MIN)
                 {
@@ -1193,7 +1225,14 @@ class menuLocFunctionsAdd : public wmcApp
             }
             break;
         case button_power: transit<mainMenu>(); break;
-        default: break;
+        case button_5:
+            /* Store loc functions */
+            m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, LocLib::storeAdd);
+            m_locLib.LocBubbleSort();
+            m_locAddressAdd++;
+            transit<menuLocAdd>();
+            break;
+        case button_none: break;
         }
     };
 };
@@ -1240,17 +1279,17 @@ class menuLocFunctionsChange : public wmcApp
             if (e.Delta > 0)
             {
                 m_locFunctionChange++;
-                if (m_locFunctionChange > 28)
+                if (m_locFunctionChange > FUNCTION_MAX)
                 {
-                    m_locFunctionChange = 0;
+                    m_locFunctionChange = FUNCTION_MIN;
                 }
                 m_wmcTft.FunctionAddUpdate(m_locFunctionChange);
             }
             else if (e.Delta < 0)
             {
-                if (m_locFunctionChange == 0)
+                if (m_locFunctionChange == FUNCTION_MIN)
                 {
-                    m_locFunctionChange = 28;
+                    m_locFunctionChange = FUNCTION_MAX;
                 }
                 else
                 {
@@ -1308,7 +1347,12 @@ class menuLocFunctionsChange : public wmcApp
             }
             break;
         case button_power: transit<mainMenu>(); break;
-        default: break;
+        case button_5:
+            /* Store changed data and yellow text indicating data is stored. */
+            m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, LocLib::storeChange);
+            m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_yellow);
+            break;
+        case button_none: break;
         }
     };
 };
@@ -1368,8 +1412,9 @@ class menuLocDelete : public wmcApp
         case button_2:
         case button_3:
         case button_4:
+        case button_5:
         case button_power: transit<mainMenu>(); break;
-        default: break;
+        case button_none: break;
         }
     };
 };
@@ -1508,6 +1553,7 @@ class cvProgramming : public wmcApp
         /* Handle menu request. */
         switch (e.Button)
         {
+        case button_0:
         case button_1:
         case button_2:
         case button_3:
@@ -1526,11 +1572,10 @@ class cvProgramming : public wmcApp
             }
             else
             {
-                m_z21Slave.LanSetTrackPowerOn();
-                WmcCheckForDataTx();
+                transit<initStatusGet>();
             }
             break;
-        default: break;
+        case button_none: break;
         }
     };
 
@@ -1564,7 +1609,7 @@ class cvProgramming : public wmcApp
             }
             else
             {
-                transit<initLocInfoGet>();
+                transit<initStatusGet>();
             }
             break;
         }
@@ -1580,9 +1625,10 @@ class cvProgramming : public wmcApp
  * Default event handlers when not declared in states itself.
  */
 
-void wmcApp::react(updateEvent50msec const&) { WmcCheckForDataRx(); };
 void wmcApp::react(pulseSwitchEvent const&){};
 void wmcApp::react(pushButtonsEvent const&){};
+void wmcApp::react(updateEvent50msec const&) { WmcCheckForDataRx(); };
+void wmcApp::react(updateEvent100msec const&) { m_WmcCommandLine.Update(); };
 void wmcApp::react(updateEvent500msec const&){};
 void wmcApp::react(updateEvent3sec const&)
 {
@@ -1596,24 +1642,6 @@ void wmcApp::react(cvProgEvent const&){};
  * Initial state.
  */
 FSM_INITIAL_STATE(wmcApp, setUpWifi)
-
-/***********************************************************************************************************************
- * limit maximum loc addres.
- */
-uint16_t wmcApp::limitLocAddress(uint16_t locAddress)
-{
-    uint16_t locAdrresReturn = locAddress;
-    if (locAdrresReturn > ADDRESS_LOC_MAX)
-    {
-        locAdrresReturn = ADDRESS_LOC_MIN;
-    }
-    else if (locAdrresReturn == 0)
-    {
-        locAdrresReturn = ADDRESS_LOC_MAX;
-    }
-
-    return (locAdrresReturn);
-}
 
 /***********************************************************************************************************************
  * Check for received Z21 data and process it.
@@ -1687,21 +1715,56 @@ void wmcApp::WmcCheckForDataTx(void)
 }
 
 /***********************************************************************************************************************
+ * Convert loc data to tft loc data.
+ */
+void wmcApp::convertLocDataToDisplayData(Z21Slave::locInfo* Z21DataPtr, WmcTft::locoInfo* TftDataPtr)
+{
+    TftDataPtr->Address = Z21DataPtr->Address;
+    TftDataPtr->Speed   = Z21DataPtr->Speed;
+
+    switch (Z21DataPtr->Steps)
+    {
+    case Z21Slave::locDecoderSpeedSteps14: TftDataPtr->Steps = WmcTft::locoDecoderSpeedSteps14; break;
+    case Z21Slave::locDecoderSpeedSteps28: TftDataPtr->Steps = WmcTft::locoDecoderSpeedSteps28; break;
+    case Z21Slave::locDecoderSpeedSteps128: TftDataPtr->Steps = WmcTft::locoDecoderSpeedSteps128; break;
+    case Z21Slave::locDecoderSpeedStepsUnknown: TftDataPtr->Steps = WmcTft::locoDecoderSpeedStepsUnknown; break;
+    }
+
+    switch (Z21DataPtr->Direction)
+    {
+    case Z21Slave::locDirectionForward: TftDataPtr->Direction = WmcTft::locoDirectionForward; break;
+    case Z21Slave::locDirectionBackward: TftDataPtr->Direction = WmcTft::locoDirectionBackward; break;
+    }
+
+    switch (Z21DataPtr->Light)
+    {
+    case Z21Slave::locLightOn: TftDataPtr->Light = WmcTft::locoLightOn; break;
+    case Z21Slave::locLightOff: TftDataPtr->Light = WmcTft::locoLightOff; break;
+    }
+
+    TftDataPtr->Functions = Z21DataPtr->Functions;
+    TftDataPtr->Occupied  = Z21DataPtr->Occupied;
+}
+
+/***********************************************************************************************************************
  * Update loc info on screen.
  */
-void wmcApp::updateLocInfoOnScreen(bool updateAll)
+bool wmcApp::updateLocInfoOnScreen(bool updateAll)
 {
     uint8_t Index        = 0;
+    bool Result          = true;
     m_WmcLocInfoReceived = m_z21Slave.LanXLocoInfo();
+    WmcTft::locoInfo locInfoActual;
+    WmcTft::locoInfo locInfoPrevious;
 
     if (m_locLib.GetActualLocAddress() == m_WmcLocInfoReceived->Address)
     {
         switch (m_WmcLocInfoReceived->Steps)
         {
-        case Z21Slave::locDecoderSpeedSteps14: m_locLib.DecoderStepsUpdate(LocLib::decoderStep14); break;
-        case Z21Slave::locDecoderSpeedSteps28: m_locLib.DecoderStepsUpdate(LocLib::decoderStep28); break;
-        case Z21Slave::locDecoderSpeedSteps128: m_locLib.DecoderStepsUpdate(LocLib::decoderStep128); break;
-        case Z21Slave::locDecoderSpeedStepsUnknown: m_locLib.DecoderStepsUpdate(LocLib::decoderStep28); break;
+        case Z21Slave::locDecoderSpeedSteps14: m_locLib.DecoderStepsUpdate(decoderStep14); break;
+        case Z21Slave::locDecoderSpeedSteps28: m_locLib.DecoderStepsUpdate(decoderStep28); break;
+        case Z21Slave::locDecoderSpeedSteps128: m_locLib.DecoderStepsUpdate(decoderStep128); break;
+        case Z21Slave::locDecoderSpeedStepsUnknown: m_locLib.DecoderStepsUpdate(decoderStep28); break;
         }
 
         for (Index = 0; Index < 5; Index++)
@@ -1716,10 +1779,18 @@ void wmcApp::updateLocInfoOnScreen(bool updateAll)
             m_locSelection                = false;
         }
 
-        m_wmcTft.UpdateLocInfo(m_WmcLocInfoReceived, &m_WmcLocInfoControl, m_locFunctionAssignment, updateAll);
+        convertLocDataToDisplayData(m_WmcLocInfoReceived, &locInfoActual);
+        convertLocDataToDisplayData(&m_WmcLocInfoControl, &locInfoPrevious);
+        m_wmcTft.UpdateLocInfo(&locInfoActual, &locInfoPrevious, m_locFunctionAssignment, updateAll);
 
         memcpy(&m_WmcLocInfoControl, m_WmcLocInfoReceived, sizeof(Z21Slave::locInfo));
     }
+    else
+    {
+        Result = false;
+    }
+
+    return (Result);
 }
 
 /***********************************************************************************************************************
@@ -1731,7 +1802,7 @@ void wmcApp::PrepareLanXSetLocoDriveAndTransmit(void)
 
     /* Get loc data and compose it for transmit */
     LocInfoTx.Speed = m_locLib.SpeedGet();
-    if (m_locLib.DirectionGet() == LocLib::directionForward)
+    if (m_locLib.DirectionGet() == directionForward)
     {
         LocInfoTx.Direction = Z21Slave::locDirectionForward;
     }
@@ -1744,9 +1815,9 @@ void wmcApp::PrepareLanXSetLocoDriveAndTransmit(void)
 
     switch (m_locLib.DecoderStepsGet())
     {
-    case LocLib::decoderStep14: LocInfoTx.Steps = Z21Slave::locDecoderSpeedSteps14; break;
-    case LocLib::decoderStep28: LocInfoTx.Steps = Z21Slave::locDecoderSpeedSteps28; break;
-    case LocLib::decoderStep128: LocInfoTx.Steps = Z21Slave::locDecoderSpeedSteps128; break;
+    case decoderStep14: LocInfoTx.Steps = Z21Slave::locDecoderSpeedSteps14; break;
+    case decoderStep28: LocInfoTx.Steps = Z21Slave::locDecoderSpeedSteps28; break;
+    case decoderStep128: LocInfoTx.Steps = Z21Slave::locDecoderSpeedSteps128; break;
     }
 
     m_z21Slave.LanXSetLocoDrive(&LocInfoTx);

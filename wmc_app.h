@@ -10,6 +10,9 @@
 /***********************************************************************************************************************
  * I N C L U D E S
  **********************************************************************************************************************/
+#include "LocStorage.h"
+#include "Loclib.h"
+#include "WmcCli.h"
 #include "WmcTft.h"
 #include "Z21Slave.h"
 #include "wmc_event.h"
@@ -37,21 +40,24 @@ public:
     virtual void react(pushButtonsEvent const&);
     virtual void react(pulseSwitchEvent const&);
     virtual void react(updateEvent50msec const&);
+    virtual void react(updateEvent100msec const&);
     virtual void react(updateEvent500msec const&);
 
     virtual void entry(void){}; /* entry actions in some states */
     virtual void exit(void){};  /* no exit actions at all */
 
 protected:
-    uint16_t limitLocAddress(uint16_t locAddress);
     Z21Slave::dataType WmcCheckForDataRx(void);
     void WmcCheckForDataTx(void);
-    void updateLocInfoOnScreen(bool updateAll);
+    void convertLocDataToDisplayData(Z21Slave::locInfo* Z21DataPtr, WmcTft::locoInfo* TftDataPtr);
+    bool updateLocInfoOnScreen(bool updateAll);
     void PrepareLanXSetLocoDriveAndTransmit(void);
 
     static WmcTft m_wmcTft;
     static LocLib m_locLib;
     static WiFiUDP m_WifiUdp;
+    static WmcCli m_WmcCommandLine;
+    static LocStorage m_LocStorage;
     static bool m_TrackPower;
     static Z21Slave m_z21Slave;
     static bool m_locSelection;
@@ -82,8 +88,6 @@ protected:
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 20;
     static const uint16_t ADDRESS_TURNOUT_MIN              = 1;
     static const uint16_t ADDRESS_TURNOUT_MAX              = 9999;
-    static const uint16_t ADDRESS_LOC_MIN                  = 1;
-    static const uint16_t ADDRESS_LOC_MAX                  = 9999;
     static const uint8_t FUNCTION_MIN                      = 0;
     static const uint8_t FUNCTION_MAX                      = 28;
 };
