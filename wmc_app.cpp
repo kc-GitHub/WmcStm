@@ -22,24 +22,24 @@
 /***********************************************************************************************************************
    F O R W A R D  D E C L A R A T I O N S
  **********************************************************************************************************************/
-class initUdpConnect;
-class initUdpConnectFail;
-class setUpWifiFail;
-class initBroadcast;
-class initStatusGet;
-class initLocInfoGet;
-class powerOff;
-class powerOn;
-class powerProgrammingMode;
-class turnoutControl;
-class turnoutControlPowerOff;
-class mainMenu;
-class menuLocAdd;
-class menuLocFunctionsAdd;
-class menuLocFunctionsChange;
-class menuLocDelete;
-class commandLineInterfaceActive;
-class cvProgramming;
+class stateInitUdpConnect;
+class stateInitUdpConnectFail;
+class stateSetUpWifiFail;
+class stateInitBroadcast;
+class stateInitStatusGet;
+class stateInitLocInfoGet;
+class statePowerOff;
+class statePowerOn;
+class statePowerProgrammingMode;
+class stateTurnoutControl;
+class stateTurnoutControlPowerOff;
+class stateMainMenu;
+class stateMenuLocAdd;
+class stateMenuLocFunctionsAdd;
+class stateMenuLocFunctionsChange;
+class stateMenuLocDelete;
+class stateCommandLineInterfaceActive;
+class stateCvProgramming;
 
 /***********************************************************************************************************************
    D A T A   D E C L A R A T I O N S (exported, local)
@@ -159,13 +159,13 @@ class setUpWifi : public wmcApp
             }
             else
             {
-                transit<setUpWifiFail>();
+                transit<stateSetUpWifiFail>();
             }
         }
         else
         {
             /* Start UDP */
-            transit<initUdpConnect>();
+            transit<stateInitUdpConnect>();
         }
     };
 
@@ -178,7 +178,7 @@ class setUpWifi : public wmcApp
 /***********************************************************************************************************************
  * No wifi connection could be made, show error screen.
  */
-class setUpWifiFail : public wmcApp
+class stateSetUpWifiFail : public wmcApp
 {
     void entry() override { m_wmcTft.WifiConnectFailed(); }
 
@@ -190,7 +190,7 @@ class setUpWifiFail : public wmcApp
 /***********************************************************************************************************************
  * Setup udp connection and request status to get communication up and running.
  */
-class initUdpConnect : public wmcApp
+class stateInitUdpConnect : public wmcApp
 {
     /**
      * Start UDP connection.
@@ -219,7 +219,7 @@ class initUdpConnect : public wmcApp
         }
         else
         {
-            transit<initUdpConnectFail>();
+            transit<stateInitUdpConnectFail>();
         }
     };
 
@@ -232,7 +232,7 @@ class initUdpConnect : public wmcApp
         {
         case Z21Slave::trackPowerOff:
         case Z21Slave::programmingMode:
-        case Z21Slave::trackPowerOn: transit<initBroadcast>(); break;
+        case Z21Slave::trackPowerOn: transit<stateInitBroadcast>(); break;
         default: break;
         }
     };
@@ -246,7 +246,7 @@ class initUdpConnect : public wmcApp
 /***********************************************************************************************************************
  * No UDP connection to control unit possible.
  */
-class initUdpConnectFail : public wmcApp
+class stateInitUdpConnectFail : public wmcApp
 {
     void entry() override { m_wmcTft.UdpConnectFailed(); }
 
@@ -260,7 +260,7 @@ class initUdpConnectFail : public wmcApp
         {
         case Z21Slave::trackPowerOff:
         case Z21Slave::programmingMode:
-        case Z21Slave::trackPowerOn: transit<initBroadcast>(); break;
+        case Z21Slave::trackPowerOn: transit<stateInitBroadcast>(); break;
         default: break;
         }
     };
@@ -269,7 +269,7 @@ class initUdpConnectFail : public wmcApp
 /***********************************************************************************************************************
  * Sent broadcast message.
  */
-class initBroadcast : public wmcApp
+class stateInitBroadcast : public wmcApp
 {
     /**
      * Transmit broadcast info.
@@ -283,7 +283,7 @@ class initBroadcast : public wmcApp
     /**
      * Continue to next state.
      */
-    void react(updateEvent50msec const&) override { transit<initStatusGet>(); };
+    void react(updateEvent50msec const&) override { transit<stateInitStatusGet>(); };
 
     /**
      * Override update during init.
@@ -294,7 +294,7 @@ class initBroadcast : public wmcApp
 /***********************************************************************************************************************
  * Get the status of the control unit.
  */
-class initStatusGet : public wmcApp
+class stateInitStatusGet : public wmcApp
 {
     /**
      * Get the status.
@@ -314,15 +314,15 @@ class initStatusGet : public wmcApp
         {
         case Z21Slave::trackPowerOff:
             m_TrackPower = false;
-            transit<initLocInfoGet>();
+            transit<stateInitLocInfoGet>();
             break;
         case Z21Slave::programmingMode:
             m_TrackPower = false;
-            transit<initLocInfoGet>();
+            transit<stateInitLocInfoGet>();
             break;
         case Z21Slave::trackPowerOn:
             m_TrackPower = true;
-            transit<initLocInfoGet>();
+            transit<stateInitLocInfoGet>();
             break;
         default: break;
         }
@@ -342,7 +342,7 @@ class initStatusGet : public wmcApp
 /***********************************************************************************************************************
  * Get the data of the actual selected loc.
  */
-class initLocInfoGet : public wmcApp
+class stateInitLocInfoGet : public wmcApp
 {
     /**
      * Request loc info.
@@ -378,11 +378,11 @@ class initLocInfoGet : public wmcApp
 
                 if (m_TrackPower == false)
                 {
-                    transit<powerOff>();
+                    transit<statePowerOff>();
                 }
                 else
                 {
-                    transit<powerOn>();
+                    transit<statePowerOn>();
                 }
             }
             break;
@@ -408,7 +408,7 @@ class initLocInfoGet : public wmcApp
 /***********************************************************************************************************************
  * Control in power off mode. From here go to power on or menu.
  */
-class powerOff : public wmcApp
+class statePowerOff : public wmcApp
 {
     uint8_t Index = 0;
 
@@ -429,8 +429,8 @@ class powerOff : public wmcApp
     {
         switch (WmcCheckForDataRx())
         {
-        case Z21Slave::trackPowerOn: transit<powerOn>(); break;
-        case Z21Slave::programmingMode: transit<powerProgrammingMode>(); break;
+        case Z21Slave::trackPowerOn: transit<statePowerOn>(); break;
+        case Z21Slave::programmingMode: transit<statePowerProgrammingMode>(); break;
         case Z21Slave::locinfo:
             updateLocInfoOnScreen(false);
             m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
@@ -517,7 +517,7 @@ class powerOff : public wmcApp
             m_z21Slave.LanSetTrackPowerOn();
             WmcCheckForDataTx();
             break;
-        case pushedlong: transit<mainMenu>(); break;
+        case pushedlong: transit<stateMainMenu>(); break;
         default: break;
         }
     }
@@ -526,7 +526,7 @@ class powerOff : public wmcApp
 /***********************************************************************************************************************
  * Control is on, control the loc speed and functions, go back to power off or select another locomotive.
  */
-class powerOn : public wmcApp
+class statePowerOn : public wmcApp
 {
     /**
      * Update status row.
@@ -546,8 +546,8 @@ class powerOn : public wmcApp
     {
         switch (WmcCheckForDataRx())
         {
-        case Z21Slave::trackPowerOff: transit<powerOff>(); break;
-        case Z21Slave::programmingMode: transit<powerProgrammingMode>(); break;
+        case Z21Slave::trackPowerOff: transit<statePowerOff>(); break;
+        case Z21Slave::programmingMode: transit<statePowerProgrammingMode>(); break;
         case Z21Slave::locinfo:
             updateLocInfoOnScreen(false);
             m_WmcLocSpeedRequestPending = false;
@@ -635,7 +635,7 @@ class powerOn : public wmcApp
         case pushedlong:
             m_CvPomProgramming            = true;
             m_CvPomProgrammingFromPowerOn = true;
-            transit<cvProgramming>();
+            transit<stateCvProgramming>();
             break;
         }
     };
@@ -676,7 +676,7 @@ class powerOn : public wmcApp
             break;
         case button_5:
             m_wmcTft.Clear();
-            transit<turnoutControl>();
+            transit<stateTurnoutControl>();
             break;
         case button_none: break;
         }
@@ -686,7 +686,7 @@ class powerOn : public wmcApp
 /***********************************************************************************************************************
  * Another Z21 device is in programming mode, do nothing....
  */
-class powerProgrammingMode : public wmcApp
+class statePowerProgrammingMode : public wmcApp
 {
     /**
      * Update status row.
@@ -705,8 +705,8 @@ class powerProgrammingMode : public wmcApp
     {
         switch (WmcCheckForDataRx())
         {
-        case Z21Slave::trackPowerOff: transit<powerOff>(); break;
-        case Z21Slave::trackPowerOn: transit<powerOn>(); break;
+        case Z21Slave::trackPowerOff: transit<statePowerOff>(); break;
+        case Z21Slave::trackPowerOn: transit<statePowerOn>(); break;
         default: break;
         }
     };
@@ -736,7 +736,7 @@ class powerProgrammingMode : public wmcApp
 /***********************************************************************************************************************
  * Turnout control.
  */
-class turnoutControl : public wmcApp
+class stateTurnoutControl : public wmcApp
 {
     /**
      * Show turnout screen.
@@ -758,7 +758,7 @@ class turnoutControl : public wmcApp
     {
         switch (WmcCheckForDataRx())
         {
-        case Z21Slave::trackPowerOff: transit<turnoutControlPowerOff>(); break;
+        case Z21Slave::trackPowerOff: transit<stateTurnoutControlPowerOff>(); break;
         default: break;
         }
 
@@ -821,7 +821,7 @@ class turnoutControl : public wmcApp
         case pushedNormal:
         case pushedlong:
             /* Back to loc control. */
-            transit<initStatusGet>();
+            transit<stateInitStatusGet>();
             break;
         default: break;
         }
@@ -903,7 +903,7 @@ class turnoutControl : public wmcApp
 /***********************************************************************************************************************
  * Power off screen and handling for turnout control.
  */
-class turnoutControlPowerOff : public wmcApp
+class stateTurnoutControlPowerOff : public wmcApp
 {
     /**
      * Show turnout screen.
@@ -924,7 +924,7 @@ class turnoutControlPowerOff : public wmcApp
         case Z21Slave::trackPowerOff: break;
         case Z21Slave::trackPowerOn:
             m_TrackPower = true;
-            transit<turnoutControl>();
+            transit<stateTurnoutControl>();
             break;
         default: break;
         }
@@ -942,7 +942,7 @@ class turnoutControlPowerOff : public wmcApp
         case pushedShort: break;
         case pushedNormal:
             /* Back to loc control. */
-            transit<initLocInfoGet>();
+            transit<stateInitLocInfoGet>();
             break;
         default: break;
         }
@@ -974,7 +974,7 @@ class turnoutControlPowerOff : public wmcApp
 /***********************************************************************************************************************
  * Show main menu and handle the request.
  */
-class mainMenu : public wmcApp
+class stateMainMenu : public wmcApp
 {
     /**
      * Show menu on screen.
@@ -999,7 +999,7 @@ class mainMenu : public wmcApp
         case pushedNormal:
         case pushedlong:
             m_locSelection = true;
-            transit<initStatusGet>();
+            transit<stateInitStatusGet>();
             break;
         }
     }
@@ -1014,21 +1014,21 @@ class mainMenu : public wmcApp
         {
         case button_1:
             m_locAddressAdd = m_locLib.GetActualLocAddress();
-            transit<menuLocAdd>();
+            transit<stateMenuLocAdd>();
             break;
-        case button_2: transit<menuLocFunctionsChange>(); break;
-        case button_3: transit<menuLocDelete>(); break;
+        case button_2: transit<stateMenuLocFunctionsChange>(); break;
+        case button_3: transit<stateMenuLocDelete>(); break;
         case button_4:
             m_CvPomProgramming = false;
-            transit<cvProgramming>();
+            transit<stateCvProgramming>();
             break;
         case button_5:
             m_CvPomProgramming = true;
-            transit<cvProgramming>();
+            transit<stateCvProgramming>();
             break;
         case button_power:
             m_locSelection = true;
-            transit<initStatusGet>();
+            transit<stateInitStatusGet>();
             break;
         case button_0:
         case button_none: break;
@@ -1039,7 +1039,7 @@ class mainMenu : public wmcApp
 /***********************************************************************************************************************
  * Add a loc.
  */
-class menuLocAdd : public wmcApp
+class stateMenuLocAdd : public wmcApp
 {
     /**
      * Show loc menu add screen.
@@ -1086,7 +1086,7 @@ class menuLocAdd : public wmcApp
             }
             else
             {
-                transit<menuLocFunctionsAdd>();
+                transit<stateMenuLocFunctionsAdd>();
             }
             break;
         default: break;
@@ -1116,12 +1116,12 @@ class menuLocAdd : public wmcApp
             }
             else
             {
-                transit<menuLocFunctionsAdd>();
+                transit<stateMenuLocFunctionsAdd>();
             }
             break;
         case button_power:
             updateScreen = false;
-            transit<mainMenu>();
+            transit<stateMainMenu>();
             break;
         case button_none: updateScreen = false; break;
         }
@@ -1137,7 +1137,7 @@ class menuLocAdd : public wmcApp
 /***********************************************************************************************************************
  * Set the functions of the loc to be added.
  */
-class menuLocFunctionsAdd : public wmcApp
+class stateMenuLocFunctionsAdd : public wmcApp
 {
     /**
      * Show function add screen.
@@ -1193,7 +1193,7 @@ class menuLocFunctionsAdd : public wmcApp
             m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, LocLib::storeAdd);
             m_locLib.LocBubbleSort();
             m_locAddressAdd++;
-            transit<menuLocAdd>();
+            transit<stateMenuLocAdd>();
             break;
         default: break;
         }
@@ -1224,13 +1224,13 @@ class menuLocFunctionsAdd : public wmcApp
                     static_cast<uint8_t>(e.Button), m_locFunctionAssignment[static_cast<uint8_t>(e.Button)]);
             }
             break;
-        case button_power: transit<mainMenu>(); break;
+        case button_power: transit<stateMainMenu>(); break;
         case button_5:
             /* Store loc functions */
             m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, LocLib::storeAdd);
             m_locLib.LocBubbleSort();
             m_locAddressAdd++;
-            transit<menuLocAdd>();
+            transit<stateMenuLocAdd>();
             break;
         case button_none: break;
         }
@@ -1240,7 +1240,7 @@ class menuLocFunctionsAdd : public wmcApp
 /***********************************************************************************************************************
  * Changer functions of a loc already present.
  */
-class menuLocFunctionsChange : public wmcApp
+class stateMenuLocFunctionsChange : public wmcApp
 {
     /**
      * Show change function screen.
@@ -1346,7 +1346,7 @@ class menuLocFunctionsChange : public wmcApp
                     static_cast<uint8_t>(e.Button), m_locFunctionAssignment[static_cast<uint8_t>(e.Button)]);
             }
             break;
-        case button_power: transit<mainMenu>(); break;
+        case button_power: transit<stateMainMenu>(); break;
         case button_5:
             /* Store changed data and yellow text indicating data is stored. */
             m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, LocLib::storeChange);
@@ -1360,7 +1360,7 @@ class menuLocFunctionsChange : public wmcApp
 /***********************************************************************************************************************
  * Delete a loc.
  */
-class menuLocDelete : public wmcApp
+class stateMenuLocDelete : public wmcApp
 {
     /**
      * Show delete screen.
@@ -1413,7 +1413,7 @@ class menuLocDelete : public wmcApp
         case button_3:
         case button_4:
         case button_5:
-        case button_power: transit<mainMenu>(); break;
+        case button_power: transit<stateMainMenu>(); break;
         case button_none: break;
         }
     };
@@ -1422,7 +1422,7 @@ class menuLocDelete : public wmcApp
 /***********************************************************************************************************************
  * Command lie interface active state.
  */
-class commandLineInterfaceActive : public wmcApp
+class stateCommandLineInterfaceActive : public wmcApp
 {
     /**
      * Show delete screen.
@@ -1438,7 +1438,7 @@ class commandLineInterfaceActive : public wmcApp
 /***********************************************************************************************************************
  * CV programming main state.
  */
-class cvProgramming : public wmcApp
+class stateCvProgramming : public wmcApp
 {
     /**
      * Show delete screen.
@@ -1477,7 +1477,7 @@ class cvProgramming : public wmcApp
             m_TrackPower      = false;
             EventCv.EventData = stop;
             send_event(EventCv);
-            transit<initLocInfoGet>();
+            transit<stateInitLocInfoGet>();
             break;
         case Z21Slave::trackPowerOn:
             if ((m_CvPomProgramming == false) || (m_CvPomProgrammingFromPowerOn == true))
@@ -1485,7 +1485,7 @@ class cvProgramming : public wmcApp
                 m_TrackPower      = true;
                 EventCv.EventData = stop;
                 send_event(EventCv);
-                transit<initLocInfoGet>();
+                transit<stateInitLocInfoGet>();
             }
             break;
         case Z21Slave::programmingCvNackSc:
@@ -1568,11 +1568,11 @@ class cvProgramming : public wmcApp
             send_event(EventCv);
             if (m_CvPomProgrammingFromPowerOn == false)
             {
-                transit<mainMenu>();
+                transit<stateMainMenu>();
             }
             else
             {
-                transit<initStatusGet>();
+                transit<stateInitStatusGet>();
             }
             break;
         case button_none: break;
@@ -1605,11 +1605,11 @@ class cvProgramming : public wmcApp
             send_event(EventCv);
             if (m_CvPomProgrammingFromPowerOn == false)
             {
-                transit<mainMenu>();
+                transit<stateMainMenu>();
             }
             else
             {
-                transit<initStatusGet>();
+                transit<stateInitStatusGet>();
             }
             break;
         }
@@ -1635,7 +1635,7 @@ void wmcApp::react(updateEvent3sec const&)
     m_z21Slave.LanGetStatus();
     WmcCheckForDataTx();
 };
-void wmcApp::react(cliEnterEvent const&) { transit<commandLineInterfaceActive>(); };
+void wmcApp::react(cliEnterEvent const&) { transit<stateCommandLineInterfaceActive>(); };
 void wmcApp::react(cvProgEvent const&){};
 
 /***********************************************************************************************************************
