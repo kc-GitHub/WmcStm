@@ -581,16 +581,6 @@ class statePowerOn : public wmcApp
     };
 
     /**
-     * Keep alive.
-     */
-    void react(updateEvent3sec const&) override
-    {
-        m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
-        m_WmcLocSpeedRequestPending = true;
-        WmcCheckForDataTx();
-    }
-
-    /**
      * Handle pulse switch events.
      */
     void react(pulseSwitchEvent const& e) override
