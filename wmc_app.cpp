@@ -1590,6 +1590,7 @@ class stateCvProgramming : public wmcApp
             m_z21Slave.LanXCvPomWriteByte(e.Address, e.CvNumber, e.CvValue);
             WmcCheckForDataTx();
             break;
+        case cvStatusRequest: break;
         case cvExit:
             EventCv.EventData = stop;
             send_event(EventCv);

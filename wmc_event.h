@@ -50,6 +50,7 @@ enum cvProgRequest
 {
     cvRead = 0,
     cvWrite,
+    cvStatusRequest,
     pomWrite,
     cvExit,
 };
