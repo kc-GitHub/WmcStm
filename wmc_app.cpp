@@ -9,6 +9,7 @@
 #include "wmc_app.h"
 #include "eep_cfg.h"
 #include "fsmlist.hpp"
+#include "version.h"
 #include "wmc_cv.h"
 #include "wmc_event.h"
 #include <EEPROM.h>
@@ -102,6 +103,7 @@ class setUpWifi : public wmcApp
 
         /* Init modules. */
         m_wmcTft.Init();
+        m_wmcTft.ShowVersion(SW_MAJOR, SW_MINOR, SW_PATCH);
         m_LocStorage.Init();
         m_locLib.Init(m_LocStorage);
         m_WmcCommandLine.Init(m_locLib, m_LocStorage);
