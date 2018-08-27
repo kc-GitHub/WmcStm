@@ -973,7 +973,7 @@ class stateMainMenu : public wmcApp
      */
     void entry() override
     {
-        m_wmcTft.ShowMenu();
+        m_wmcTft.ShowMenu1();
         m_z21Slave.LanSetTrackPowerOff();
         WmcCheckForDataTx();
     };
