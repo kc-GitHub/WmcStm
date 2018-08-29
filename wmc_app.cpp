@@ -413,7 +413,8 @@ class stateInitLocInfoGet : public wmcApp
  */
 class statePowerOff : public wmcApp
 {
-    uint8_t Index = 0;
+    uint8_t Index                    = 0;
+    uint8_t locFunctionAssignment[5] = { 0, 1, 2, 3, 4 };
 
     /**
      * Update status row.
@@ -448,25 +449,30 @@ class statePowerOff : public wmcApp
             }
             break;
         case Z21Slave::locLibraryData:
-        {
-            uint8_t locFunctionAssignment[5] = { 0, 1, 2, 3, 4 };
-
             m_WmcLocLibInfo = m_z21Slave.LanXLocLibData();
 
+            /* First database data show status... */
+            if (m_WmcLocLibInfo->Actual == 0)
+            {
+                m_wmcTft.UpdateStatus("Receiving", false, WmcTft::color_white);
+            }
+
+            /* If loc not presetn store it. */
             if (m_locLib.CheckLoc(m_WmcLocLibInfo->Address) == 255)
             {
                 m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, LocLib::storeAddNoAutoSelect);
                 m_wmcTft.UpdateSelectedAndNumberOfLocs(
                     m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
-
-                /* If all locs received sort... */
-                if (m_WmcLocLibInfo->Actual == m_WmcLocLibInfo->Total)
-                {
-                    m_locLib.LocBubbleSort();
-                }
             }
-        }
-        break;
+
+            /* If all locs received sort... */
+            if ((m_WmcLocLibInfo->Actual + 1) == m_WmcLocLibInfo->Total)
+            {
+                m_wmcTft.UpdateStatus("Sorting  ", false, WmcTft::color_white);
+                m_locLib.LocBubbleSort();
+                m_wmcTft.UpdateStatus("PowerOff ", false, WmcTft::color_red);
+            }
+            break;
         default: break;
         }
     }
@@ -564,21 +570,7 @@ class statePowerOn : public wmcApp
                 m_locLib.DirectionSet(directionBackWard);
             }
             break;
-        case Z21Slave::locLibraryData:
-        {
-            uint8_t locFunctionAssignment[5] = { 0, 1, 2, 3, 4 };
-
-            m_WmcLocLibInfo = m_z21Slave.LanXLocLibData();
-
-            if (m_locLib.CheckLoc(m_WmcLocLibInfo->Address) != 255)
-            {
-                m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, LocLib::storeAdd);
-                m_locLib.LocBubbleSort();
-                m_wmcTft.UpdateSelectedAndNumberOfLocs(
-                    m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
-            }
-        }
-        break;
+        case Z21Slave::locLibraryData: break;
         default: break;
         }
     };
@@ -1075,6 +1067,7 @@ class stateMainMenu2 : public wmcApp
             m_wmcTft.ShowErase();
             m_locLib.InitialLocStore();
             m_LocStorage.NumberOfLocsSet(1);
+            m_wmcTft.Clear();
             m_wmcTft.CommandLine();
             while (1)
             {
@@ -1085,6 +1078,7 @@ class stateMainMenu2 : public wmcApp
             m_WifiUdp.stop();
             m_wmcTft.ShowErase();
             m_locLib.InitialLocStore();
+            m_LocStorage.NumberOfLocsSet(1);
             m_LocStorage.AcOptionSet(0);
             m_WmcCommandLine.IpSettingsDefault();
             m_wmcTft.Clear();
