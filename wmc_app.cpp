@@ -455,7 +455,7 @@ class statePowerOff : public wmcApp
 
             if (m_locLib.CheckLoc(m_WmcLocLibInfo->Address) == 255)
             {
-                m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, LocLib::storeAdd);
+                m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, LocLib::storeAddNoAutoSelect);
                 m_wmcTft.UpdateSelectedAndNumberOfLocs(
                     m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
 
