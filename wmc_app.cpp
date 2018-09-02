@@ -1191,7 +1191,7 @@ class stateMainMenu2 : public wmcApp
             break;
         case button_3: break;
         case button_4:
-            /* Erase all settings and ask user to perform reset. */
+            /* Erase all locomotives and ask user to perform reset. */
             m_WifiUdp.stop();
             m_wmcTft.ShowErase();
             m_locLib.InitialLocStore();
@@ -1203,7 +1203,7 @@ class stateMainMenu2 : public wmcApp
             };
             break;
         case button_5:
-            /* Erase all settings and ask user to perform reset. */
+            /* Erase all locs and settings and ask user to perform reset. */
             m_WifiUdp.stop();
             m_wmcTft.ShowErase();
             m_locLib.InitialLocStore();
