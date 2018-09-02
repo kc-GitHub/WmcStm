@@ -31,6 +31,7 @@ class stateInitStatusGet;
 class stateInitLocInfoGet;
 class statePowerOff;
 class statePowerOn;
+class stateEmergencyStop;
 class statePowerProgrammingMode;
 class stateTurnoutControl;
 class stateTurnoutControlPowerOff;
@@ -74,6 +75,7 @@ uint16_t wmcApp::m_locAddressChange          = 0;
 bool wmcApp::m_WmcLocSpeedRequestPending     = false;
 bool wmcApp::m_CvPomProgramming              = false;
 bool wmcApp::m_CvPomProgrammingFromPowerOn   = false;
+bool wmcApp::m_EmergencyStopEnabled          = false;
 uint8_t wmcApp::m_locFunctionAssignment[5];
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
 Z21Slave::locInfo* wmcApp::m_WmcLocInfoReceived = NULL;
@@ -106,6 +108,8 @@ class setUpWifi : public wmcApp
         m_wmcTft.Init();
         m_wmcTft.ShowVersion(SW_MAJOR, SW_MINOR, SW_PATCH);
         m_LocStorage.Init();
+        m_EmergencyStopEnabled = m_LocStorage.EmergencyOptionGet();
+
         m_locLib.Init(m_LocStorage);
         m_WmcCommandLine.Init(m_locLib, m_LocStorage);
         m_wmcTft.UpdateStatus("Connecting to Wifi", true, WmcTft::color_yellow);
@@ -555,6 +559,7 @@ class statePowerOn : public wmcApp
     {
         switch (WmcCheckForDataRx())
         {
+        case Z21Slave::emergencyStop: transit<stateEmergencyStop>(); break;
         case Z21Slave::trackPowerOff: transit<statePowerOff>(); break;
         case Z21Slave::programmingMode: transit<statePowerProgrammingMode>(); break;
         case Z21Slave::locinfo:
@@ -634,7 +639,14 @@ class statePowerOn : public wmcApp
         switch (e.Button)
         {
         case button_power:
-            m_z21Slave.LanSetTrackPowerOff();
+            if (m_EmergencyStopEnabled == false)
+            {
+                m_z21Slave.LanSetTrackPowerOff();
+            }
+            else
+            {
+                m_z21Slave.LanSetStop();
+            }
             WmcCheckForDataTx();
             break;
         case button_0:
@@ -663,6 +675,105 @@ class statePowerOn : public wmcApp
             m_wmcTft.Clear();
             transit<stateTurnoutControl>();
             break;
+        case button_none: break;
+        }
+    };
+};
+
+/***********************************************************************************************************************
+ * Emergency stop, only react on power button and function buttons.
+ */
+class stateEmergencyStop : public wmcApp
+{
+    /**
+     * Update status row.
+     */
+    void entry() override
+    {
+        m_locSelection              = false;
+        m_WmcLocSpeedRequestPending = false;
+        m_wmcTft.UpdateStatus("PowerOn", false, WmcTft::color_yellow);
+        m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
+
+        /* Force speed to zero on screen. */
+        m_locLib.SpeedUpdate(0);
+        updateLocInfoOnScreen(false);
+    };
+
+    /**
+     * Handle received data.
+     */
+    void react(updateEvent50msec const&) override
+    {
+        switch (WmcCheckForDataRx())
+        {
+        case Z21Slave::trackPowerOff: transit<statePowerOff>(); break;
+        case Z21Slave::trackPowerOn: transit<statePowerOn>(); break;
+        case Z21Slave::emergencyStop: break;
+        case Z21Slave::programmingMode: break;
+        case Z21Slave::locinfo:
+            updateLocInfoOnScreen(false);
+            m_WmcLocSpeedRequestPending = false;
+            m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
+            if (m_WmcLocInfoReceived->Direction == Z21Slave::locDirectionForward)
+            {
+                m_locLib.DirectionSet(directionForward);
+            }
+            else
+            {
+                m_locLib.DirectionSet(directionBackWard);
+            }
+            break;
+        case Z21Slave::locLibraryData: break;
+        default: break;
+        }
+    };
+
+    /**
+     * Handle pulse switch events.
+     */
+    void react(pulseSwitchEvent const& e) override
+    {
+        switch (e.Status)
+        {
+        case pushturn:
+        case turn:
+        case pushedShort:
+        case pushedNormal:
+        case pushedlong: break;
+        }
+    };
+
+    /**
+     * Handle button events.
+     */
+    void react(pushButtonsEvent const& e) override
+    {
+        uint8_t Function = 0;
+        switch (e.Button)
+        {
+        case button_power:
+            m_z21Slave.LanSetTrackPowerOn();
+            WmcCheckForDataTx();
+            break;
+        case button_0:
+        case button_1:
+        case button_2:
+        case button_3:
+        case button_4:
+            Function = m_locLib.FunctionAssignedGet(static_cast<uint8_t>(e.Button));
+            m_locLib.FunctionToggle(Function);
+            if (m_locLib.FunctionStatusGet(Function) == LocLib::functionOn)
+            {
+                m_z21Slave.LanXSetLocoFunction(m_locLib.GetActualLocAddress(), Function, Z21Slave::on);
+            }
+            else
+            {
+                m_z21Slave.LanXSetLocoFunction(m_locLib.GetActualLocAddress(), Function, Z21Slave::off);
+            }
+            WmcCheckForDataTx();
+            break;
+        case button_5:
         case button_none: break;
         }
     };
@@ -1031,7 +1142,7 @@ class stateMainMenu2 : public wmcApp
      */
     void entry() override
     {
-        m_wmcTft.ShowMenu2();
+        m_wmcTft.ShowMenu2(m_LocStorage.EmergencyOptionGet(), true);
         WmcCheckForDataTx();
     };
 
@@ -1061,8 +1172,26 @@ class stateMainMenu2 : public wmcApp
         /* Handle menu request. */
         switch (e.Button)
         {
-        case button_1:
-            // Erase all settings and ask user to perform reset.
+        case button_0:
+        case button_1: break;
+        case button_2:
+            /* Toggle emergency stop or power off for power button. */
+            if (m_LocStorage.EmergencyOptionGet() == false)
+            {
+                m_LocStorage.EmergencyOptionSet(1);
+                m_EmergencyStopEnabled = true;
+                m_wmcTft.ShowMenu2(true, false);
+            }
+            else
+            {
+                m_LocStorage.EmergencyOptionSet(0);
+                m_EmergencyStopEnabled = false;
+                m_wmcTft.ShowMenu2(false, false);
+            }
+            break;
+        case button_3: break;
+        case button_4:
+            /* Erase all settings and ask user to perform reset. */
             m_WifiUdp.stop();
             m_wmcTft.ShowErase();
             m_locLib.InitialLocStore();
@@ -1073,13 +1202,14 @@ class stateMainMenu2 : public wmcApp
             {
             };
             break;
-        case button_2:
-            // Erase all settings and ask user to perform reset.
+        case button_5:
+            /* Erase all settings and ask user to perform reset. */
             m_WifiUdp.stop();
             m_wmcTft.ShowErase();
             m_locLib.InitialLocStore();
-            m_LocStorage.NumberOfLocsSet(1);
             m_LocStorage.AcOptionSet(0);
+            m_LocStorage.NumberOfLocsSet(1);
+            m_LocStorage.EmergencyOptionSet(0);
             m_WmcCommandLine.IpSettingsDefault();
             m_wmcTft.Clear();
             m_wmcTft.CommandLine();
@@ -1087,14 +1217,10 @@ class stateMainMenu2 : public wmcApp
             {
             };
             break;
-        case button_3:
-        case button_4:
-        case button_5:
         case button_power:
             m_locSelection = true;
             transit<stateInitStatusGet>();
             break;
-        case button_0:
         case button_none: break;
         }
     };
@@ -1493,6 +1619,7 @@ class stateCommandLineInterfaceActive : public wmcApp
      */
     void entry() override
     {
+        m_WifiUdp.stop();
         m_wmcTft.Clear();
         m_wmcTft.UpdateStatus("COMMAND LINE", true, WmcTft::color_green);
         m_wmcTft.CommandLine();
