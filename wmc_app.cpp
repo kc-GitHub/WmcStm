@@ -737,9 +737,13 @@ class stateEmergencyStop : public wmcApp
         switch (e.Status)
         {
         case pushturn:
-        case turn:
-        case pushedShort:
+        case turn: break;
         case pushedNormal:
+            /* Change direction. */
+            m_locLib.DirectionToggle();
+            PrepareLanXSetLocoDriveAndTransmit();
+            break;
+        case pushedShort:
         case pushedlong: break;
         }
     };
