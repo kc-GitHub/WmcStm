@@ -80,10 +80,18 @@ protected:
     static Z21Slave::locInfo m_WmcLocInfoControl;
     static Z21Slave::locInfo* m_WmcLocInfoReceived;
     static Z21Slave::locLibData* m_WmcLocLibInfo;
+    static bool m_ButtonPrevious;
+    static uint8_t m_ButtonIndexPrevious;
     static bool m_WmcLocSpeedRequestPending;
     static bool m_CvPomProgramming;
     static bool m_CvPomProgrammingFromPowerOn;
     static bool m_EmergencyStopEnabled;
+
+    static uint16_t m_AdcButtonValue[7];
+    static uint16_t m_AdcButtonValuePrevious;
+    static uint8_t m_AdcIndex;
+
+    static pushButtonsEvent m_wmcPushButtonEvent;
 
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 200;
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 20;

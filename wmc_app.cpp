@@ -9,6 +9,7 @@
 #include "wmc_app.h"
 #include "eep_cfg.h"
 #include "fsmlist.hpp"
+#include "user_interface.h"
 #include "version.h"
 #include "wmc_cv.h"
 #include "wmc_event.h"
@@ -19,12 +20,15 @@
    D E F I N E S
  **********************************************************************************************************************/
 #define WMC_APP_DEBUG_TX_RX 0
-
+#define WMC_APP_ANALOG_IN A0
 /***********************************************************************************************************************
    F O R W A R D  D E C L A R A T I O N S
  **********************************************************************************************************************/
+class stateInit;
+class stateSetUpWifi;
 class stateInitUdpConnect;
 class stateInitUdpConnectFail;
+class stateAdcButtons;
 class stateSetUpWifiFail;
 class stateInitBroadcast;
 class stateInitStatusGet;
@@ -76,7 +80,14 @@ bool wmcApp::m_WmcLocSpeedRequestPending     = false;
 bool wmcApp::m_CvPomProgramming              = false;
 bool wmcApp::m_CvPomProgrammingFromPowerOn   = false;
 bool wmcApp::m_EmergencyStopEnabled          = false;
+bool wmcApp::m_ButtonPrevious                = false;
+uint8_t wmcApp::m_ButtonIndexPrevious        = 0;
+uint8_t wmcApp::m_AdcIndex                   = 0;
 uint8_t wmcApp::m_locFunctionAssignment[5];
+uint16_t wmcApp::m_AdcButtonValue[7];
+uint16_t wmcApp::m_AdcButtonValuePrevious = 1024;
+
+pushButtonsEvent wmcApp::m_wmcPushButtonEvent;
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
 Z21Slave::locInfo* wmcApp::m_WmcLocInfoReceived = NULL;
 Z21Slave::locLibData* wmcApp::m_WmcLocLibInfo   = NULL;
@@ -85,10 +96,37 @@ Z21Slave::locLibData* wmcApp::m_WmcLocLibInfo   = NULL;
   F U N C T I O N S
  **********************************************************************************************************************/
 
+class stateInit : public wmcApp
+{
+
+    void entry() override
+    {
+        m_LocStorage.Init();
+        m_wmcTft.Init();
+        m_wmcTft.Clear();
+    };
+
+    void react(updateEvent100msec const&) override
+    {
+        uint8_t buttonAdcValid;
+
+        buttonAdcValid = EEPROM.read(EepCfg::ButtonAdcValuesAddressValid);
+        if (buttonAdcValid == 0)
+        {
+            transit<stateAdcButtons>();
+        }
+        else
+        {
+            EEPROM.get(EepCfg::ButtonAdcValuesAddress, m_AdcButtonValue);
+            transit<stateSetUpWifi>();
+        }
+    };
+};
+
 /***********************************************************************************************************************
  * Init the wifi connection.
  */
-class setUpWifi : public wmcApp
+class stateSetUpWifi : public wmcApp
 {
     /**
      * Init modules and start connection to wifi network.
@@ -98,6 +136,7 @@ class setUpWifi : public wmcApp
         char SsidName[50];
         char SsidPassword[50];
         uint8_t StaticIp = 0;
+        uint8_t Index    = 0;
 
         memset(SsidName, '\0', sizeof(SsidName));
         memset(SsidPassword, '\0', sizeof(SsidPassword));
@@ -105,9 +144,8 @@ class setUpWifi : public wmcApp
         m_ConnectCnt = 0;
 
         /* Init modules. */
-        m_wmcTft.Init();
+        m_wmcTft.ShowName();
         m_wmcTft.ShowVersion(SW_MAJOR, SW_MINOR, SW_PATCH);
-        m_LocStorage.Init();
         m_EmergencyStopEnabled = m_LocStorage.EmergencyOptionGet();
 
         m_locLib.Init(m_LocStorage);
@@ -116,7 +154,7 @@ class setUpWifi : public wmcApp
         m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
 
         /* Get SSID data from EEPROM. */
-        EEPROM.get(EepCfg::SsidAddress, SsidName);
+        EEPROM.get(EepCfg::SsidNameAddress, SsidName);
         EEPROM.get(EepCfg::SsidPasswordAddress, SsidPassword);
 
         /* Get IP data. */
@@ -125,6 +163,13 @@ class setUpWifi : public wmcApp
         EEPROM.get(EepCfg::EepIpAddressWmc, m_IpAddresWmc);
         EEPROM.get(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
         StaticIp = EEPROM.read(EepCfg::StaticIpAddress);
+
+        /* Get ADC button data. */
+        for (Index = 0; Index < 7; Index++)
+        {
+            m_AdcButtonValue[Index] = (uint16_t)(EEPROM.read(EepCfg::ButtonAdcValuesAddress + (Index * 2))) << 8;
+            m_AdcButtonValue[Index] |= (uint16_t)(EEPROM.read(EepCfg::ButtonAdcValuesAddress + (Index * 2) + 1));
+        }
 
         m_wmcTft.ShowNetworkName(SsidName);
 
@@ -258,8 +303,8 @@ class stateInitUdpConnectFail : public wmcApp
     void entry() override { m_wmcTft.UdpConnectFailed(); }
 
     /**
-     * Handle the response on the status message of the 3 seconds update event, control device might be enabled somewhat
-     * later.
+     * Handle the response on the status message of the 3 seconds update event, control device might be enabled
+     * somewhat later.
      */
     void react(updateEvent50msec const&) override
     {
@@ -269,6 +314,71 @@ class stateInitUdpConnectFail : public wmcApp
         case Z21Slave::programmingMode:
         case Z21Slave::trackPowerOn: transit<stateInitBroadcast>(); break;
         default: break;
+        }
+    };
+};
+
+/***********************************************************************************************************************
+ * No UDP connection to control unit possible.
+ */
+class stateAdcButtons : public wmcApp
+{
+    void entry() override
+    {
+        m_AdcIndex = 0;
+        m_wmcTft.UpdateStatus("BUTTON ADC LEARN", true, WmcTft::color_yellow);
+        m_wmcTft.ShowButtonToPress(m_AdcIndex);
+
+        /* Array item 6 contains the non pressed ADC value. This mat vary, 1024 is expected but lower
+         * values are also observed, so store nnon pressed value.
+         */
+        m_AdcButtonValue[6]      = analogRead(WMC_APP_ANALOG_IN);
+        m_AdcButtonValuePrevious = m_AdcButtonValue[6];
+    }
+
+    /**
+     */
+    void react(updateEvent100msec const&) override
+    {
+        uint8_t Index          = 0;
+        uint8_t buttonAdcValid = 0;
+        uint16_t AdcValue      = analogRead(WMC_APP_ANALOG_IN);
+
+        if (AdcValue >= (m_AdcButtonValue[6] - 100))
+        {
+            if (m_AdcButtonValuePrevious < m_AdcButtonValue[6] - 100)
+            {
+                m_AdcButtonValue[m_AdcIndex] = m_AdcButtonValuePrevious;
+                m_AdcIndex++;
+
+                if (m_AdcIndex >= 6)
+                {
+                    // Store all "learned" data.
+                    for (Index = 0; Index < 7; Index++)
+                    {
+                        EEPROM.write(
+                            EepCfg::ButtonAdcValuesAddress + (Index * 2), (m_AdcButtonValue[Index] >> 8) & 0xFF);
+                        EEPROM.write(EepCfg::ButtonAdcValuesAddress + (Index * 2) + 1, m_AdcButtonValue[Index] & 0xFF);
+                        EEPROM.commit();
+                    }
+
+                    buttonAdcValid = 1;
+                    EEPROM.write(EepCfg::ButtonAdcValuesAddressValid, buttonAdcValid);
+                    EEPROM.commit();
+
+                    transit<stateSetUpWifi>();
+                }
+                else
+                {
+                    m_wmcTft.ShowButtonToPress(m_AdcIndex);
+                }
+
+                m_AdcButtonValuePrevious = AdcValue;
+            }
+        }
+        else
+        {
+            m_AdcButtonValuePrevious = AdcValue;
         }
     };
 };
@@ -1820,11 +1930,63 @@ class stateCvProgramming : public wmcApp
 /***********************************************************************************************************************
  * Default event handlers when not declared in states itself.
  */
-
 void wmcApp::react(pulseSwitchEvent const&){};
 void wmcApp::react(pushButtonsEvent const&){};
 void wmcApp::react(updateEvent50msec const&) { WmcCheckForDataRx(); };
-void wmcApp::react(updateEvent100msec const&) { m_WmcCommandLine.Update(); };
+void wmcApp::react(updateEvent100msec const&)
+{
+    bool Found    = false;
+    uint8_t Index = 0;
+    uint16_t readingIn;
+
+    m_WmcCommandLine.Update();
+
+    readingIn = analogRead(WMC_APP_ANALOG_IN);
+
+    /* Button pressed ? */
+    if (readingIn < m_AdcButtonValue[6])
+    {
+        /* Check which button is pressed. */
+        while ((Index < 6) && (Found == false))
+        {
+            /* One button results in ADC values ~10, check. */
+            if (m_AdcButtonValue[Index] < 20)
+            {
+                if (readingIn <= m_AdcButtonValue[Index])
+                {
+                    /* Button value within defined borders... */
+                    Found                 = true;
+                    m_ButtonIndexPrevious = Index;
+                }
+                else
+                {
+                    Index++;
+                }
+            }
+            else if ((readingIn > (m_AdcButtonValue[Index] - 20)) && (readingIn < (m_AdcButtonValue[Index] + 20)))
+            {
+                /* Button value within defined borders... */
+                Found                 = true;
+                m_ButtonIndexPrevious = Index;
+            }
+            else
+            {
+                /* Increase index for next check... */
+                Index++;
+            }
+        }
+    }
+
+    if ((Found == false) && (m_ButtonPrevious == true))
+    {
+        // Valid button detected, throw event once after release of button..
+        m_wmcPushButtonEvent.Button = static_cast<pushButtons>(m_ButtonIndexPrevious);
+        send_event(m_wmcPushButtonEvent);
+    }
+
+    m_ButtonPrevious = Found;
+};
+
 void wmcApp::react(updateEvent500msec const&){};
 void wmcApp::react(updateEvent3sec const&)
 {
@@ -1837,7 +1999,7 @@ void wmcApp::react(cvProgEvent const&){};
 /***********************************************************************************************************************
  * Initial state.
  */
-FSM_INITIAL_STATE(wmcApp, setUpWifi)
+FSM_INITIAL_STATE(wmcApp, stateInit)
 
 /***********************************************************************************************************************
  * Check for received Z21 data and process it.

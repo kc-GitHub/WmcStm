@@ -80,7 +80,7 @@ struct updateEvent50msec : tinyfsm::Event
 };
 
 /**
- * 50msec Update event
+ * 100msec Update event
  */
 struct updateEvent100msec : tinyfsm::Event
 {
