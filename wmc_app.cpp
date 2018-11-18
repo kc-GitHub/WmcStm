@@ -64,8 +64,8 @@ uint8_t wmcApp::m_IpAddresZ21[4];
 uint8_t wmcApp::m_IpAddresWmc[4];
 uint8_t wmcApp::m_IpGateway[4];
 uint8_t wmcApp::m_IpSubnet[4];
-bool wmcApp::m_TrackPower = false;
 byte wmcApp::m_WmcPacketBuffer[40];
+wmcApp::powerState wmcApp::m_TrackPower      = powerState::off;
 uint16_t wmcApp::m_ConnectCnt                = 0;
 uint16_t wmcApp::m_UdpLocalPort              = 21105;
 uint16_t wmcApp::m_locAddressAdd             = 1;
@@ -83,9 +83,9 @@ bool wmcApp::m_EmergencyStopEnabled          = false;
 bool wmcApp::m_ButtonPrevious                = false;
 uint8_t wmcApp::m_ButtonIndexPrevious        = 0;
 uint8_t wmcApp::m_AdcIndex                   = 0;
+uint16_t wmcApp::m_AdcButtonValuePrevious    = 1024;
 uint8_t wmcApp::m_locFunctionAssignment[5];
-uint16_t wmcApp::m_AdcButtonValue[7];
-uint16_t wmcApp::m_AdcButtonValuePrevious = 1024;
+uint16_t wmcApp::m_AdcButtonValue[ADC_VALUES_ARRAY_SIZE];
 
 pushButtonsEvent wmcApp::m_wmcPushButtonEvent;
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
@@ -101,9 +101,9 @@ class stateInit : public wmcApp
 
     void entry() override
     {
-        m_LocStorage.Init();
         m_wmcTft.Init();
         m_wmcTft.Clear();
+        m_LocStorage.Init();
     };
 
     void react(updateEvent100msec const&) override
@@ -111,7 +111,7 @@ class stateInit : public wmcApp
         uint8_t buttonAdcValid;
 
         buttonAdcValid = EEPROM.read(EepCfg::ButtonAdcValuesAddressValid);
-        if (buttonAdcValid == 0)
+        if (buttonAdcValid != 1)
         {
             transit<stateAdcButtons>();
         }
@@ -165,7 +165,7 @@ class stateSetUpWifi : public wmcApp
         StaticIp = EEPROM.read(EepCfg::StaticIpAddress);
 
         /* Get ADC button data. */
-        for (Index = 0; Index < 7; Index++)
+        for (Index = 0; Index < ADC_VALUES_ARRAY_SIZE; Index++)
         {
             m_AdcButtonValue[Index] = (uint16_t)(EEPROM.read(EepCfg::ButtonAdcValuesAddress + (Index * 2))) << 8;
             m_AdcButtonValue[Index] |= (uint16_t)(EEPROM.read(EepCfg::ButtonAdcValuesAddress + (Index * 2) + 1));
@@ -332,8 +332,8 @@ class stateAdcButtons : public wmcApp
         /* Array item 6 contains the non pressed ADC value. This mat vary, 1024 is expected but lower
          * values are also observed, so store nnon pressed value.
          */
-        m_AdcButtonValue[6]      = analogRead(WMC_APP_ANALOG_IN);
-        m_AdcButtonValuePrevious = m_AdcButtonValue[6];
+        m_AdcButtonValue[ADC_VALUES_ARRAY_REFERENCE_INDEX] = analogRead(WMC_APP_ANALOG_IN);
+        m_AdcButtonValuePrevious                           = m_AdcButtonValue[ADC_VALUES_ARRAY_REFERENCE_INDEX];
     }
 
     /**
@@ -344,9 +344,9 @@ class stateAdcButtons : public wmcApp
         uint8_t buttonAdcValid = 0;
         uint16_t AdcValue      = analogRead(WMC_APP_ANALOG_IN);
 
-        if (AdcValue >= (m_AdcButtonValue[6] - 100))
+        if (AdcValue >= (m_AdcButtonValue[ADC_VALUES_ARRAY_REFERENCE_INDEX] - 100))
         {
-            if (m_AdcButtonValuePrevious < m_AdcButtonValue[6] - 100)
+            if (m_AdcButtonValuePrevious < m_AdcButtonValue[ADC_VALUES_ARRAY_REFERENCE_INDEX] - 100)
             {
                 m_AdcButtonValue[m_AdcIndex] = m_AdcButtonValuePrevious;
                 m_AdcIndex++;
@@ -354,7 +354,7 @@ class stateAdcButtons : public wmcApp
                 if (m_AdcIndex >= 6)
                 {
                     // Store all "learned" data.
-                    for (Index = 0; Index < 7; Index++)
+                    for (Index = 0; Index < ADC_VALUES_ARRAY_SIZE; Index++)
                     {
                         EEPROM.write(
                             EepCfg::ButtonAdcValuesAddress + (Index * 2), (m_AdcButtonValue[Index] >> 8) & 0xFF);
@@ -430,15 +430,19 @@ class stateInitStatusGet : public wmcApp
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::trackPowerOff:
-            m_TrackPower = false;
+            m_TrackPower = powerState::off;
             transit<stateInitLocInfoGet>();
             break;
         case Z21Slave::programmingMode:
-            m_TrackPower = false;
+            m_TrackPower = powerState::off;
             transit<stateInitLocInfoGet>();
             break;
         case Z21Slave::trackPowerOn:
-            m_TrackPower = true;
+            m_TrackPower = powerState::on;
+            transit<stateInitLocInfoGet>();
+            break;
+        case Z21Slave::emergencyStop:
+            m_TrackPower = powerState::emergency;
             transit<stateInitLocInfoGet>();
             break;
         default: break;
@@ -493,13 +497,11 @@ class stateInitLocInfoGet : public wmcApp
                     m_locLib.DirectionSet(directionBackWard);
                 }
 
-                if (m_TrackPower == false)
+                switch (m_TrackPower)
                 {
-                    transit<statePowerOff>();
-                }
-                else
-                {
-                    transit<statePowerOn>();
+                case powerState::off: transit<statePowerOff>(); break;
+                case powerState::on: transit<statePowerOn>(); break;
+                case powerState::emergency: transit<stateEmergencyStop>(); break;
                 }
             }
             break;
@@ -854,7 +856,7 @@ class stateEmergencyStop : public wmcApp
             PrepareLanXSetLocoDriveAndTransmit();
             break;
         case pushedShort:
-        case pushedlong: break;
+        case pushedlong: transit<stateMainMenu1>(); break;
         }
     };
 
@@ -1121,7 +1123,7 @@ class stateTurnoutControlPowerOff : public wmcApp
     void entry() override
     {
         m_wmcTft.UpdateStatus("TURNOUT", true, WmcTft::color_red);
-        m_TrackPower = false;
+        m_TrackPower = powerState::off;
     };
 
     /**
@@ -1133,7 +1135,7 @@ class stateTurnoutControlPowerOff : public wmcApp
         {
         case Z21Slave::trackPowerOff: break;
         case Z21Slave::trackPowerOn:
-            m_TrackPower = true;
+            m_TrackPower = powerState::on;
             transit<stateTurnoutControl>();
             break;
         default: break;
@@ -1779,7 +1781,7 @@ class stateCvProgramming : public wmcApp
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::trackPowerOff:
-            m_TrackPower      = false;
+            m_TrackPower      = powerState::off;
             EventCv.EventData = stop;
             send_event(EventCv);
             transit<stateInitLocInfoGet>();
@@ -1787,7 +1789,7 @@ class stateCvProgramming : public wmcApp
         case Z21Slave::trackPowerOn:
             if ((m_CvPomProgramming == false) || (m_CvPomProgrammingFromPowerOn == true))
             {
-                m_TrackPower      = true;
+                m_TrackPower      = powerState::on;
                 EventCv.EventData = stop;
                 send_event(EventCv);
                 transit<stateInitLocInfoGet>();
@@ -1944,7 +1946,7 @@ void wmcApp::react(updateEvent100msec const&)
     readingIn = analogRead(WMC_APP_ANALOG_IN);
 
     /* Button pressed ? */
-    if (readingIn < m_AdcButtonValue[6])
+    if (readingIn < m_AdcButtonValue[ADC_VALUES_ARRAY_REFERENCE_INDEX])
     {
         /* Check which button is pressed. */
         while ((Index < 6) && (Found == false))

@@ -46,6 +46,13 @@ public:
     virtual void entry(void){}; /* entry actions in some states */
     virtual void exit(void){};  /* no exit actions at all */
 
+    enum powerState
+    {
+        on = 0,
+        off,
+        emergency
+    };
+
 protected:
     Z21Slave::dataType WmcCheckForDataRx(void);
     void WmcCheckForDataTx(void);
@@ -53,12 +60,21 @@ protected:
     bool updateLocInfoOnScreen(bool updateAll);
     void PrepareLanXSetLocoDriveAndTransmit(void);
 
+    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 200;
+    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 20;
+    static const uint16_t ADDRESS_TURNOUT_MIN              = 1;
+    static const uint16_t ADDRESS_TURNOUT_MAX              = 9999;
+    static const uint8_t FUNCTION_MIN                      = 0;
+    static const uint8_t FUNCTION_MAX                      = 28;
+    static const uint8_t ADC_VALUES_ARRAY_SIZE             = 7;
+    static const uint8_t ADC_VALUES_ARRAY_REFERENCE_INDEX  = 6;
+
     static WmcTft m_wmcTft;
     static LocLib m_locLib;
     static WiFiUDP m_WifiUdp;
     static WmcCli m_WmcCommandLine;
     static LocStorage m_LocStorage;
-    static bool m_TrackPower;
+    static wmcApp::powerState m_TrackPower;
     static Z21Slave m_z21Slave;
     static bool m_locSelection;
     static uint16_t m_ConnectCnt;
@@ -87,18 +103,11 @@ protected:
     static bool m_CvPomProgrammingFromPowerOn;
     static bool m_EmergencyStopEnabled;
 
-    static uint16_t m_AdcButtonValue[7];
+    static uint16_t m_AdcButtonValue[ADC_VALUES_ARRAY_SIZE];
     static uint16_t m_AdcButtonValuePrevious;
     static uint8_t m_AdcIndex;
 
     static pushButtonsEvent m_wmcPushButtonEvent;
-
-    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 200;
-    static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 20;
-    static const uint16_t ADDRESS_TURNOUT_MIN              = 1;
-    static const uint16_t ADDRESS_TURNOUT_MAX              = 9999;
-    static const uint8_t FUNCTION_MIN                      = 0;
-    static const uint8_t FUNCTION_MAX                      = 28;
 };
 
 #endif
