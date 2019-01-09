@@ -593,6 +593,12 @@ class statePowerOff : public wmcApp
         }
     }
 
+    void react(updateEvent500msec const&)
+    {
+        m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
+        WmcCheckForDataTx();
+    };
+
     /**
      * Keep alive.
      */
@@ -693,10 +699,21 @@ class statePowerOn : public wmcApp
     };
 
     /**
+     * Request loc info if for some reason no repsonse was received.
+     */
+    void react(updateEvent500msec const&)
+    {
+        m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
+        WmcCheckForDataTx();
+    };
+
+    /**
      * Handle pulse switch events.
      */
     void react(pulseSwitchEvent const& e) override
     {
+        uint16_t Speed = 0;
+
         switch (e.Status)
         {
         case pushturn:
@@ -715,24 +732,26 @@ class statePowerOn : public wmcApp
             /* Increase or decrease speed. */
             if (m_WmcLocSpeedRequestPending == false)
             {
-                if (m_locLib.SpeedSet(e.Delta) == true)
+                Speed = m_locLib.SpeedSet(e.Delta);
+                if (Speed != 0xFFFF)
                 {
                     m_WmcLocSpeedRequestPending = true;
-                    PrepareLanXSetLocoDriveAndTransmit();
+                    PrepareLanXSetLocoDriveAndTransmit(Speed);
                 }
             }
             break;
         case pushedShort:
             /* Stop or change direction when speed is zero. */
-            if (m_locLib.SpeedSet(0) == true)
+            Speed = m_locLib.SpeedSet(0);
+            if (Speed != 0xFFFF)
             {
-                PrepareLanXSetLocoDriveAndTransmit();
+                PrepareLanXSetLocoDriveAndTransmit(Speed);
             }
             break;
         case pushedNormal:
             /* Change direction. */
             m_locLib.DirectionToggle();
-            PrepareLanXSetLocoDriveAndTransmit();
+            PrepareLanXSetLocoDriveAndTransmit(m_locLib.SpeedGet());
             break;
         case pushedlong:
             m_CvPomProgramming            = true;
@@ -853,7 +872,7 @@ class stateEmergencyStop : public wmcApp
         case pushedNormal:
             /* Change direction. */
             m_locLib.DirectionToggle();
-            PrepareLanXSetLocoDriveAndTransmit();
+            PrepareLanXSetLocoDriveAndTransmit(m_locLib.SpeedGet());
             break;
         case pushedShort:
         case pushedlong: transit<stateMainMenu1>(); break;
@@ -2156,12 +2175,12 @@ bool wmcApp::updateLocInfoOnScreen(bool updateAll)
 /***********************************************************************************************************************
  * Compose locomotive message to be transmitted and transmit it.
  */
-void wmcApp::PrepareLanXSetLocoDriveAndTransmit(void)
+void wmcApp::PrepareLanXSetLocoDriveAndTransmit(uint16_t Speed)
 {
     Z21Slave::locInfo LocInfoTx;
 
     /* Get loc data and compose it for transmit */
-    LocInfoTx.Speed = m_locLib.SpeedGet();
+    LocInfoTx.Speed = Speed;
     if (m_locLib.DirectionGet() == directionForward)
     {
         LocInfoTx.Direction = Z21Slave::locDirectionForward;
