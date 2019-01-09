@@ -249,9 +249,15 @@ class stateInitUdpConnect : public wmcApp
      */
     void entry()
     {
+        char IpStr[20];
+
+        snprintf(IpStr, sizeof(IpStr), "%hu.%hu.%hu.%hu", m_IpAddresZ21[0], m_IpAddresZ21[1], m_IpAddresZ21[2],
+            m_IpAddresZ21[3]);
         m_ConnectCnt = 0;
         m_wmcTft.ClearNetworkName();
         m_wmcTft.UpdateStatus("Connect to Control", true, WmcTft::color_yellow);
+
+        m_wmcTft.ShowIpAddressToConnectTo(IpStr);
         m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
         m_WifiUdp.begin(m_UdpLocalPort);
     }
