@@ -150,7 +150,7 @@ class stateSetUpWifi : public wmcApp
 
         m_locLib.Init(m_LocStorage);
         m_WmcCommandLine.Init(m_locLib, m_LocStorage);
-        m_wmcTft.UpdateStatus("Connecting to Wifi", true, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus("CONNECTING TO WIFI", true, WmcTft::color_yellow);
         m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
 
         /* Get SSID data from EEPROM. */
@@ -255,7 +255,7 @@ class stateInitUdpConnect : public wmcApp
             m_IpAddresZ21[3]);
         m_ConnectCnt = 0;
         m_wmcTft.ClearNetworkName();
-        m_wmcTft.UpdateStatus("Connect to Control", true, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus("CONNECT TO CONTROL", true, WmcTft::color_yellow);
 
         m_wmcTft.ShowIpAddressToConnectTo(IpStr);
         m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
@@ -544,7 +544,7 @@ class statePowerOff : public wmcApp
     void entry() override
     {
         m_locSelection = false;
-        m_wmcTft.UpdateStatus("PowerOff", false, WmcTft::color_red);
+        m_wmcTft.UpdateStatus("POWER OFF", false, WmcTft::color_red);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     }
 
@@ -576,7 +576,7 @@ class statePowerOff : public wmcApp
             /* First database data show status... */
             if (m_WmcLocLibInfo->Actual == 0)
             {
-                m_wmcTft.UpdateStatus("Receiving", false, WmcTft::color_white);
+                m_wmcTft.UpdateStatus("RECEIVING", false, WmcTft::color_white);
             }
 
             /* If loc not presetn store it. */
@@ -590,9 +590,9 @@ class statePowerOff : public wmcApp
             /* If all locs received sort... */
             if ((m_WmcLocLibInfo->Actual + 1) == m_WmcLocLibInfo->Total)
             {
-                m_wmcTft.UpdateStatus("Sorting  ", false, WmcTft::color_white);
+                m_wmcTft.UpdateStatus("SORTING  ", false, WmcTft::color_white);
                 m_locLib.LocBubbleSort();
-                m_wmcTft.UpdateStatus("PowerOff ", false, WmcTft::color_red);
+                m_wmcTft.UpdateStatus("POWER OFF", false, WmcTft::color_red);
             }
             break;
         default: break;
@@ -672,7 +672,7 @@ class statePowerOn : public wmcApp
     {
         m_locSelection              = false;
         m_WmcLocSpeedRequestPending = false;
-        m_wmcTft.UpdateStatus("PowerOn", false, WmcTft::color_green);
+        m_wmcTft.UpdateStatus("POWER ON", false, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
@@ -829,7 +829,7 @@ class stateEmergencyStop : public wmcApp
     {
         m_locSelection              = false;
         m_WmcLocSpeedRequestPending = false;
-        m_wmcTft.UpdateStatus("PowerOn", false, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus("POWER ON", false, WmcTft::color_yellow);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
 
         /* Force speed to zero on screen. */
@@ -931,7 +931,7 @@ class statePowerProgrammingMode : public wmcApp
     void entry() override
     {
         m_locSelection = false;
-        m_wmcTft.UpdateStatus("ProgMode", false, WmcTft::color_red);
+        m_wmcTft.UpdateStatus("PROG MODE", false, WmcTft::color_yellow);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
@@ -1782,12 +1782,12 @@ class stateCvProgramming : public wmcApp
         if (m_CvPomProgramming == false)
         {
             EventCv.EventData = startCv;
-            m_wmcTft.UpdateStatus("CV programming", true, WmcTft::color_green);
+            m_wmcTft.UpdateStatus("CV PROGRAMMING", true, WmcTft::color_green);
         }
         else
         {
             EventCv.EventData = startPom;
-            m_wmcTft.UpdateStatus("POM programming", true, WmcTft::color_green);
+            m_wmcTft.UpdateStatus("POM PROGRAMMING", true, WmcTft::color_green);
             m_z21Slave.LanSetTrackPowerOn();
             WmcCheckForDataTx();
         }
