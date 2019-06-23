@@ -579,10 +579,10 @@ class statePowerOff : public wmcApp
                 m_wmcTft.UpdateStatus("RECEIVING", false, WmcTft::color_white);
             }
 
-            /* If loc not presetn store it. */
+            /* If loc not present store it. */
             if (m_locLib.CheckLoc(m_WmcLocLibInfo->Address) == 255)
             {
-                m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, LocLib::storeAddNoAutoSelect);
+                m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, NULL, LocLib::storeAddNoAutoSelect);
                 m_wmcTft.UpdateSelectedAndNumberOfLocs(
                     m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
             }
@@ -1521,7 +1521,7 @@ class stateMenuLocFunctionsAdd : public wmcApp
             break;
         case pushedNormal:
             /* Store loc functions */
-            m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, LocLib::storeAdd);
+            m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, NULL, LocLib::storeAdd);
             m_locLib.LocBubbleSort();
             m_locAddressAdd++;
             transit<stateMenuLocAdd>();
@@ -1558,7 +1558,7 @@ class stateMenuLocFunctionsAdd : public wmcApp
         case button_power: transit<stateMainMenu1>(); break;
         case button_5:
             /* Store loc functions */
-            m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, LocLib::storeAdd);
+            m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, NULL, LocLib::storeAdd);
             m_locLib.LocBubbleSort();
             m_locAddressAdd++;
             transit<stateMenuLocAdd>();
@@ -1645,7 +1645,7 @@ class stateMenuLocFunctionsChange : public wmcApp
         case pushedNormal:
         case pushedlong:
             /* Store changed data and yellow text indicating data is stored. */
-            m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, LocLib::storeChange);
+            m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, NULL, LocLib::storeChange);
             m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_yellow);
             break;
         default: break;
@@ -1680,7 +1680,7 @@ class stateMenuLocFunctionsChange : public wmcApp
         case button_power: transit<stateMainMenu1>(); break;
         case button_5:
             /* Store changed data and yellow text indicating data is stored. */
-            m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, LocLib::storeChange);
+            m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, NULL, LocLib::storeChange);
             m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_yellow);
             break;
         case button_none: break;
@@ -2166,7 +2166,8 @@ bool wmcApp::updateLocInfoOnScreen(bool updateAll)
 
         convertLocDataToDisplayData(m_WmcLocInfoReceived, &locInfoActual);
         convertLocDataToDisplayData(&m_WmcLocInfoControl, &locInfoPrevious);
-        m_wmcTft.UpdateLocInfo(&locInfoActual, &locInfoPrevious, m_locFunctionAssignment, updateAll);
+        m_wmcTft.UpdateLocInfo(
+            &locInfoActual, &locInfoPrevious, m_locFunctionAssignment, m_locLib.GetLocName(), updateAll);
 
         memcpy(&m_WmcLocInfoControl, m_WmcLocInfoReceived, sizeof(Z21Slave::locInfo));
     }
