@@ -41,6 +41,7 @@ class stateTurnoutControl;
 class stateTurnoutControlPowerOff;
 class stateMainMenu1;
 class stateMainMenu2;
+class stateMenuTransmitLocDatabase;
 class stateMenuLocAdd;
 class stateMenuLocFunctionsAdd;
 class stateMenuLocFunctionsChange;
@@ -65,25 +66,28 @@ uint8_t wmcApp::m_IpAddresWmc[4];
 uint8_t wmcApp::m_IpGateway[4];
 uint8_t wmcApp::m_IpSubnet[4];
 byte wmcApp::m_WmcPacketBuffer[40];
-wmcApp::powerState wmcApp::m_TrackPower      = powerState::off;
-uint16_t wmcApp::m_ConnectCnt                = 0;
-uint16_t wmcApp::m_UdpLocalPort              = 21105;
-uint16_t wmcApp::m_locAddressAdd             = 1;
-uint16_t wmcApp::m_TurnOutAddress            = ADDRESS_TURNOUT_MIN;
-Z21Slave::turnout wmcApp::m_TurnOutDirection = Z21Slave::directionOff;
-uint32_t wmcApp::m_TurnoutOffDelay           = 0;
-uint8_t wmcApp::m_locFunctionAdd             = 0;
-uint8_t wmcApp::m_locFunctionChange          = 0;
-uint16_t wmcApp::m_locAddressDelete          = 0;
-uint16_t wmcApp::m_locAddressChange          = 0;
-bool wmcApp::m_WmcLocSpeedRequestPending     = false;
-bool wmcApp::m_CvPomProgramming              = false;
-bool wmcApp::m_CvPomProgrammingFromPowerOn   = false;
-bool wmcApp::m_EmergencyStopEnabled          = false;
-bool wmcApp::m_ButtonPrevious                = false;
-uint8_t wmcApp::m_ButtonIndexPrevious        = 0;
-uint8_t wmcApp::m_AdcIndex                   = 0;
-uint16_t wmcApp::m_AdcButtonValuePrevious    = 1024;
+wmcApp::powerState wmcApp::m_TrackPower       = powerState::off;
+uint16_t wmcApp::m_ConnectCnt                 = 0;
+uint16_t wmcApp::m_UdpLocalPort               = 21105;
+uint16_t wmcApp::m_locAddressAdd              = 1;
+uint16_t wmcApp::m_TurnOutAddress             = ADDRESS_TURNOUT_MIN;
+Z21Slave::turnout wmcApp::m_TurnOutDirection  = Z21Slave::directionOff;
+uint32_t wmcApp::m_TurnoutOffDelay            = 0;
+uint8_t wmcApp::m_locFunctionAdd              = 0;
+uint8_t wmcApp::m_locFunctionChange           = 0;
+uint16_t wmcApp::m_locAddressDelete           = 0;
+uint16_t wmcApp::m_locAddressChange           = 0;
+uint16_t wmcApp::m_locDbDataTransmitCnt       = 0;
+uint32_t wmcApp::m_locDbDataTransmitCntRepeat = 0;
+bool wmcApp::m_WmcLocSpeedRequestPending      = false;
+bool wmcApp::m_CvPomProgramming               = false;
+bool wmcApp::m_CvPomProgrammingFromPowerOn    = false;
+bool wmcApp::m_EmergencyStopEnabled           = false;
+bool wmcApp::m_ButtonPrevious                 = false;
+uint8_t wmcApp::m_ButtonIndexPrevious         = 0;
+uint8_t wmcApp::m_AdcIndex                    = 0;
+uint16_t wmcApp::m_AdcButtonValuePrevious     = 1024;
+
 uint8_t wmcApp::m_locFunctionAssignment[5];
 uint16_t wmcApp::m_AdcButtonValue[ADC_VALUES_ARRAY_SIZE];
 
@@ -1331,7 +1335,7 @@ class stateMainMenu2 : public wmcApp
                 m_wmcTft.ShowMenu2(false, false);
             }
             break;
-        case button_3: break;
+        case button_3: transit<stateMenuTransmitLocDatabase>(); break;
         case button_4:
             /* Erase all locomotives and ask user to perform reset. */
             m_WifiUdp.stop();
@@ -1746,6 +1750,91 @@ class stateMenuLocDelete : public wmcApp
         case button_4:
         case button_5:
         case button_power: transit<stateMainMenu1>(); break;
+        case button_none: break;
+        }
+    };
+};
+
+/***********************************************************************************************************************
+ * Transmit loc data on XpressNet
+ */
+class stateMenuTransmitLocDatabase : public wmcApp
+{
+    void entry() override
+    {
+        m_locDbDataTransmitCnt       = 0;
+        m_locDbDataTransmitCntRepeat = 0;
+        m_wmcTft.UpdateStatus("SEND LOC DATA", true, WmcTft::color_white);
+
+        /* Update status row. */
+        m_wmcTft.UpdateTransmitCount(
+            static_cast<uint8_t>(m_locDbDataTransmitCnt + 1), static_cast<uint8_t>(m_locLib.GetNumberOfLocs()));
+    }
+
+    /**
+     * Handle pulse switch events.
+     */
+    void react(pulseSwitchEvent const& e) override
+    {
+        switch (e.Status)
+        {
+        case turn:
+        case pushedNormal:
+        case pushedlong:
+            transit<stateMainMenu2>();
+            break;
+            break;
+        default: break;
+        }
+    }
+
+    /**
+     * Transmit loc data.
+     */
+    void react(updateEvent100msec const&)
+    {
+        LocLibData* LocDbData;
+
+        /* The loc database needs to be transmitted twice.. */
+        if (m_locDbDataTransmitCntRepeat > 2)
+        {
+            m_locDbDataTransmitCntRepeat = 1;
+            m_locDbDataTransmitCnt++;
+
+            /* Update status row. */
+            m_wmcTft.UpdateTransmitCount(
+                static_cast<uint8_t>(m_locDbDataTransmitCnt + 1), static_cast<uint8_t>(m_locLib.GetNumberOfLocs()));
+        }
+        m_locDbDataTransmitCntRepeat++;
+
+        // If last loc transmitted back to menu else transmit loc data,
+        if (m_locDbDataTransmitCnt > m_locLib.GetNumberOfLocs())
+        {
+            transit<stateMainMenu2>();
+        }
+        else
+        {
+            LocDbData = m_locLib.LocGetAllDataByIndex(m_locDbDataTransmitCnt);
+            m_z21Slave.LanXLocLibDataTransmit(LocDbData->Addres, m_locDbDataTransmitCnt,
+                static_cast<uint8_t>(m_locLib.GetNumberOfLocs()), LocDbData->Name);
+            WmcCheckForDataTx();
+        }
+    }
+
+    /**
+     * Handle button events, just go back to main menu on each button.
+     */
+    void react(pushButtonsEvent const& e) override
+    {
+        switch (e.Button)
+        {
+        case button_0:
+        case button_1:
+        case button_2:
+        case button_3:
+        case button_4:
+        case button_5:
+        case button_power: transit<stateMainMenu2>(); break;
         case button_none: break;
         }
     };

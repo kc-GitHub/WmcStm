@@ -88,6 +88,8 @@ protected:
     static Z21Slave::turnout m_TurnOutDirection;
     static uint32_t m_TurnoutOffDelay;
     static uint16_t m_locAddressChange;
+    static uint16_t m_locDbDataTransmitCnt;
+    static uint32_t m_locDbDataTransmitCntRepeat;
     static uint16_t m_locAddressDelete;
     static byte m_WmcPacketBuffer[40];
     static uint8_t m_locFunctionAdd;
@@ -108,6 +110,8 @@ protected:
     static uint8_t m_AdcIndex;
 
     static pushButtonsEvent m_wmcPushButtonEvent;
+
+    static const uint32_t LOC_DATABASE_TX_DELAY = 200;
 };
 
 #endif
