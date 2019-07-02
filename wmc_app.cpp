@@ -1221,12 +1221,7 @@ class stateMainMenu1 : public wmcApp
     /**
      * Show menu on screen.
      */
-    void entry() override
-    {
-        m_wmcTft.ShowMenu1();
-        m_z21Slave.LanSetTrackPowerOff();
-        WmcCheckForDataTx();
-    };
+    void entry() override { m_wmcTft.ShowMenu1(); };
 
     /**
      * Handle pulse switch events.
@@ -1286,11 +1281,7 @@ class stateMainMenu2 : public wmcApp
     /**
      * Show menu on screen.
      */
-    void entry() override
-    {
-        m_wmcTft.ShowMenu2(m_LocStorage.EmergencyOptionGet(), true);
-        WmcCheckForDataTx();
-    };
+    void entry() override { m_wmcTft.ShowMenu2(m_LocStorage.EmergencyOptionGet(), true); };
 
     /**
      * Handle pulse switch events.
