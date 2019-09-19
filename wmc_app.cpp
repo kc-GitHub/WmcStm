@@ -1345,6 +1345,7 @@ class stateMainMenu2 : public wmcApp
             m_wmcTft.ShowErase();
             m_locLib.InitialLocStore();
             m_LocStorage.AcOptionSet(0);
+            m_LocStorage.InvalidateAdc();
             m_LocStorage.NumberOfLocsSet(1);
             m_LocStorage.EmergencyOptionSet(0);
             m_WmcCommandLine.IpSettingsDefault();
@@ -1799,7 +1800,7 @@ class stateMenuTransmitLocDatabase : public wmcApp
         m_locDbDataTransmitCntRepeat++;
 
         // If last loc transmitted back to menu else transmit loc data,
-        if (m_locDbDataTransmitCnt > m_locLib.GetNumberOfLocs())
+        if (m_locDbDataTransmitCnt >= m_locLib.GetNumberOfLocs())
         {
             transit<stateMainMenu2>();
         }
@@ -1882,22 +1883,23 @@ class stateCvProgramming : public wmcApp
     void react(updateEvent50msec const&) override
     {
         cvEvent EventCv;
+        cvpushButtonEvent ButtonEvent;
         Z21Slave::cvData* cvDataPtr = NULL;
 
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::trackPowerOff:
-            m_TrackPower      = powerState::off;
-            EventCv.EventData = stop;
-            send_event(EventCv);
+            m_TrackPower = powerState::off;
+            /* Use power off button event to stop CV programming. */
+            ButtonEvent.EventData.Button = button_power;
+            send_event(ButtonEvent);
             transit<stateInitLocInfoGet>();
             break;
         case Z21Slave::trackPowerOn:
             if ((m_CvPomProgramming == false) || (m_CvPomProgrammingFromPowerOn == true))
             {
-                m_TrackPower      = powerState::on;
-                EventCv.EventData = stop;
-                send_event(EventCv);
+                ButtonEvent.EventData.Button = button_power;
+                send_event(ButtonEvent);
                 transit<stateInitLocInfoGet>();
             }
             break;
@@ -1961,7 +1963,6 @@ class stateCvProgramming : public wmcApp
     void react(pushButtonsEvent const& e) override
     {
         cvpushButtonEvent Event;
-        cvEvent EventCv;
 
         /* Handle menu request. */
         switch (e.Button)
@@ -1972,21 +1973,10 @@ class stateCvProgramming : public wmcApp
         case button_3:
         case button_4:
         case button_5:
+        case button_power:
             /* Forward event.*/
             Event.EventData.Button = e.Button;
             send_event(Event);
-            break;
-        case button_power:
-            EventCv.EventData = stop;
-            send_event(EventCv);
-            if (m_CvPomProgrammingFromPowerOn == false)
-            {
-                transit<stateMainMenu1>();
-            }
-            else
-            {
-                transit<stateInitStatusGet>();
-            }
             break;
         case button_none: break;
         }
@@ -1997,8 +1987,6 @@ class stateCvProgramming : public wmcApp
      */
     void react(cvProgEvent const& e) override
     {
-        cvEvent EventCv;
-
         switch (e.Request)
         {
         case cvRead:
@@ -2015,10 +2003,9 @@ class stateCvProgramming : public wmcApp
             break;
         case cvStatusRequest: break;
         case cvExit:
-            EventCv.EventData = stop;
-            send_event(EventCv);
             if (m_CvPomProgrammingFromPowerOn == false)
             {
+                m_z21Slave.LanSetTrackPowerOff();
                 transit<stateMainMenu1>();
             }
             else
