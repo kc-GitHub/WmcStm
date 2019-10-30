@@ -1345,6 +1345,7 @@ class stateMainMenu2 : public wmcApp
             m_wmcTft.ShowErase();
             m_locLib.InitialLocStore();
             m_LocStorage.AcOptionSet(0);
+            m_LocStorage.InvalidateAdc();
             m_LocStorage.NumberOfLocsSet(1);
             m_LocStorage.EmergencyOptionSet(0);
             m_WmcCommandLine.IpSettingsDefault();
@@ -1882,23 +1883,23 @@ class stateCvProgramming : public wmcApp
     void react(updateEvent50msec const&) override
     {
         cvEvent EventCv;
-        cvpushButtonEvent Event;
+        cvpushButtonEvent ButtonEvent;
         Z21Slave::cvData* cvDataPtr = NULL;
 
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::trackPowerOff:
-            m_TrackPower      = powerState::off;
-            Event.EventData.Button = button_power;
-            send_event(Event);
+            m_TrackPower = powerState::off;
+            /* Use power off button event to stop CV programming. */
+            ButtonEvent.EventData.Button = button_power;
+            send_event(ButtonEvent);
             transit<stateInitLocInfoGet>();
             break;
         case Z21Slave::trackPowerOn:
             if ((m_CvPomProgramming == false) || (m_CvPomProgrammingFromPowerOn == true))
             {
-                m_TrackPower      = powerState::on;
-                Event.EventData.Button = button_power;
-                send_event(Event);
+                ButtonEvent.EventData.Button = button_power;
+                send_event(ButtonEvent);
                 transit<stateInitLocInfoGet>();
             }
             break;
@@ -1972,10 +1973,6 @@ class stateCvProgramming : public wmcApp
         case button_3:
         case button_4:
         case button_5:
-            /* Forward event.*/
-            Event.EventData.Button = e.Button;
-            send_event(Event);
-            break;
         case button_power:
             Event.EventData.Button = e.Button;
             send_event(Event);
@@ -2017,8 +2014,8 @@ class stateCvProgramming : public wmcApp
         case cvExit:
             if (m_CvPomProgrammingFromPowerOn == false)
             {
-            	m_z21Slave.LanGetStatus();
-            	WmcCheckForDataTx();
+                m_z21Slave.LanGetStatus();
+                WmcCheckForDataTx();
                 transit<stateMainMenu1>();
             }
             else
