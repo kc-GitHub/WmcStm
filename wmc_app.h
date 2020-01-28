@@ -39,6 +39,7 @@ public:
     virtual void react(updateEvent3sec const&);
     virtual void react(pushButtonsEvent const&);
     virtual void react(pulseSwitchEvent const&);
+    virtual void react(updateEvent5msec const&);
     virtual void react(updateEvent50msec const&);
     virtual void react(updateEvent100msec const&);
     virtual void react(updateEvent500msec const&);

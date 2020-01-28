@@ -684,7 +684,7 @@ class statePowerOn : public wmcApp
     /**
      * Handle received data.
      */
-    void react(updateEvent50msec const&) override
+    void react(updateEvent5msec const&) override
     {
         switch (WmcCheckForDataRx())
         {
@@ -708,6 +708,11 @@ class statePowerOn : public wmcApp
         default: break;
         }
     };
+
+    void react(updateEvent50msec const&) override
+    {
+
+    }
 
     /**
      * Request loc info if for some reason no repsonse was received.
@@ -2037,6 +2042,7 @@ class stateCvProgramming : public wmcApp
  */
 void wmcApp::react(pulseSwitchEvent const&){};
 void wmcApp::react(pushButtonsEvent const&){};
+void wmcApp::react(updateEvent5msec const&){};
 void wmcApp::react(updateEvent50msec const&) { WmcCheckForDataRx(); };
 void wmcApp::react(updateEvent100msec const&)
 {

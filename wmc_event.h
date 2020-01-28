@@ -73,6 +73,13 @@ struct pushButtonsEvent : tinyfsm::Event
 };
 
 /**
+ * 5msec Update event
+ */
+struct updateEvent5msec : tinyfsm::Event
+{
+};
+
+/**
  * 50msec Update event
  */
 struct updateEvent50msec : tinyfsm::Event
