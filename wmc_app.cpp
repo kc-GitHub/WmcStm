@@ -709,10 +709,7 @@ class statePowerOn : public wmcApp
         }
     };
 
-    void react(updateEvent50msec const&) override
-    {
-
-    }
+    void react(updateEvent50msec const&) override {}
 
     /**
      * Request loc info if for some reason no repsonse was received.
@@ -1983,8 +1980,8 @@ class stateCvProgramming : public wmcApp
             send_event(Event);
             if (m_CvPomProgrammingFromPowerOn == false)
             {
-            	m_z21Slave.LanGetStatus();
-            	WmcCheckForDataTx();
+                m_z21Slave.LanGetStatus();
+                WmcCheckForDataTx();
                 transit<stateMainMenu1>();
             }
             else
