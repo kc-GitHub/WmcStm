@@ -25,6 +25,7 @@ public:
     static const int StaticIpAddress              = 6;   /* EEPROM address static or dynamic IP address */
     static const int ButtonAdcValuesAddressValid  = 8;   /* EEPROM address for valid ADC data indicator. */
     static const int ButtonAdcValuesAddress       = 10;  /* EEPORM address for ADC data of buttons. */
+    static const int SelectedLocAddress           = 48;  /* EEPORM address for storage of selected locomotive. */
     static const int SsidNameAddress              = 50;  /* EEPROM Address of Ssid name */
     static const int SsidPasswordAddress          = 100; /* EEPROM Address of Ssid password */
     static const int EepIpAddressZ21              = 160; /* EEPROM Address of IP address of Z21. */

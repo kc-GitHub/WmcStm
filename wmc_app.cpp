@@ -481,6 +481,7 @@ class stateInitLocInfoGet : public wmcApp
     void entry() override
     {
         /* Get loc data. */
+        m_locLib.UpdateLocData(m_locLib.GetActualLocAddress());
         m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
         WmcCheckForDataTx();
     };
@@ -1668,7 +1669,7 @@ class stateMenuLocFunctionsChange : public wmcApp
         case button_2:
         case button_3:
         case button_4:
-            /* Rest of buttons for oher functions except light. */
+            /* Rest of buttons for other functions except light. */
             if (m_locFunctionChange != 0)
             {
                 m_locFunctionAssignment[static_cast<uint8_t>(e.Button)] = m_locFunctionChange;
@@ -1976,10 +1977,11 @@ class stateCvProgramming : public wmcApp
         case button_4:
         case button_5:
         case button_power:
-            Event.EventData.Button = e.Button;
-            send_event(Event);
             if (m_CvPomProgrammingFromPowerOn == false)
             {
+                Event.EventData.Button = e.Button;
+                send_event(Event);
+
                 m_z21Slave.LanGetStatus();
                 WmcCheckForDataTx();
                 transit<stateMainMenu1>();
