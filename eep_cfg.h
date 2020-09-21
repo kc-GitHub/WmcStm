@@ -17,7 +17,7 @@
 class EepCfg
 {
 public:
-    static const uint8_t EepromVersion = 6; /* Version of data in EEPROM. */
+    static const uint8_t EepromVersion = 7; /* Version of data in EEPROM. */
 
     static const int EepromVersionAddress         = 1;   /* EEPROM address version info. */
     static const int AcTypeControlAddress         = 2;   /* EEPROM address for "AC" type control */
@@ -28,11 +28,10 @@ public:
     static const int SelectedLocAddress           = 48;  /* EEPORM address for storage of selected locomotive. */
     static const int SsidNameAddress              = 50;  /* EEPROM Address of Ssid name */
     static const int SsidPasswordAddress          = 100; /* EEPROM Address of Ssid password */
-    static const int EepIpAddressZ21              = 160; /* EEPROM Address of IP address of Z21. */
-    static const int EepIpAddressWmc              = 164; /* EEPROM Address of IP address of Wmc. */
-    static const int EepIpSubnet                  = 168; /* EEPROM Address of IP subnet of Wmc. */
-    static const int EepIpGateway                 = 172; /* EEPROM Address of gateway ip. */
-    static const int locLibEepromAddressNumOfLocs = 176; /* EEPROM address num of locs. */
-    static const int locLibEepromAddressData      = 180; /* Start in EEPROM address loc data. */
-};
+	static const int EepIpAddressZ21              = 165; /* EEPROM Address of IP address of Z21. */
+	static const int EepIpAddressWmc              = 169; /* EEPROM Address of IP address of Wmc. */
+	static const int EepIpSubnet                  = 173; /* EEPROM Address of IP subnet of Wmc. */
+	static const int EepIpGateway                 = 177; /* EEPROM Address of gateway ip. */
+	static const int locLibEepromAddressNumOfLocs = 181; /* EEPROM address num of locs. */
+	static const int locLibEepromAddressData      = 185; /* Start in EEPROM address loc data. */};
 #endif

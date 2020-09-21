@@ -138,7 +138,7 @@ class stateSetUpWifi : public wmcApp
     void entry() override
     {
         char SsidName[50];
-        char SsidPassword[50];
+        char SsidPassword[64];
         uint8_t StaticIp = 0;
         uint8_t Index    = 0;
 
