@@ -16,6 +16,10 @@
 #include <EEPROM.h>
 #include <tinyfsm.hpp>
 
+#include <DNSServer.h>              //Local DNS Server used for redirecting all requests to the configuration portal
+#include <WiFiManager.h>            //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+#include <WiFiClient.h>
+
 /***********************************************************************************************************************
    D E F I N E S
  **********************************************************************************************************************/
@@ -117,18 +121,18 @@ class stateInit : public wmcApp
 class stateSetUpWifi : public wmcApp
 {
     /**
+     * Gets called when WiFiManager enters configuration mode
+     */
+    static void enterWifiConfigMode (WiFiManager *wifiManager) {
+        Serial.print ("AP-Config-Mode active");
+        m_wmcTft.ShowWifiConfigMode();
+    }
+
+    /**
      * Init modules and start connection to wifi network.
      */
     void entry() override
     {
-        char SsidName[50];
-        char SsidPassword[64];
-        uint8_t StaticIp = 0;
-        uint8_t Index    = 0;
-
-        memset(SsidName, '\0', sizeof(SsidName));
-        memset(SsidPassword, '\0', sizeof(SsidPassword));
-
         m_ConnectCnt = 0;
 
         /* Init modules. */
@@ -141,9 +145,40 @@ class stateSetUpWifi : public wmcApp
         m_wmcTft.UpdateStatus("CONNECTING TO WIFI", true, WmcTft::color_yellow);
         m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
 
-        /* Get SSID data from EEPROM. */
-        EEPROM.get(EepCfg::SsidNameAddress, SsidName);
-        EEPROM.get(EepCfg::SsidPasswordAddress, SsidPassword);
+        // set host name
+        String hostname = DEVICE_NAME_PREFIX + String(ESP.getChipId());
+
+        WiFiManager wifiManager;                                    // WiFiManager local initialization. Not needed later
+
+        wifiManager.setDebugOutput(false);                          // disable debug output
+        wifiManager.setAPCallback(enterWifiConfigMode);             // Set callback that gets called when enters access point mode
+
+        /**
+         * Reset settings - for testing
+         */
+//      wifiManager.resetSettings();
+        Serial.print("setConfigPortalTimeout");
+        /**
+         * Sets timeout until configuration portal gets turned off
+         * useful to make it all retry or go to sleep in seconds.
+         */
+        wifiManager.setConfigPortalTimeout(120);
+
+        /**
+         * Fetches SSID and password and try to connect to stored access point.
+         * If it does not connect it starts an access point with the specified name and WITHOUT password.
+         * And goes into a blocking loop awaiting configuration.
+         *
+         * After timeout (defined above) devices resets and try again.
+         * Later we power off the device
+         */
+        if (!wifiManager.autoConnect(hostname.c_str())) {
+            // Serial.println("failed to connect and hit timeout");
+            ESP.reset();
+            delay(1000);                                            // reset and try again, or maybe put it to deep sleep
+        }
+
+        WiFi.hostname(hostname.c_str());                            // Set the wifi host name ?
 
         /* Get IP data. */
         EEPROM.get(EepCfg::EepIpSubnet, m_IpSubnet);
@@ -152,10 +187,7 @@ class stateSetUpWifi : public wmcApp
         EEPROM.get(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
         StaticIp = EEPROM.read(EepCfg::StaticIpAddress);
 
-        m_wmcTft.ShowNetworkName(SsidName);
-
-        /* Start wifi connection. */
-        WiFi.mode(WIFI_STA);
+        m_wmcTft.ShowNetworkName(WiFi.SSID().c_str());
 
         /* If static IP active set fixed IP settings for static IP. */
         if (StaticIp == 1)
@@ -165,16 +197,6 @@ class stateSetUpWifi : public wmcApp
             IPAddress subnet(m_IpSubnet[0], m_IpSubnet[1], m_IpSubnet[2], m_IpSubnet[3]);
 
             WiFi.config(ip, gateway, subnet);
-        }
-
-        /* Check for password length, if no password connect with NULL. */
-        if (strlen(SsidPassword) == 0)
-        {
-            WiFi.begin(SsidName, NULL);
-        }
-        else
-        {
-            WiFi.begin(SsidName, SsidPassword);
         }
     };
 
