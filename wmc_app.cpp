@@ -87,6 +87,7 @@ bool wmcApp::m_CvPomProgramming               = false;
 bool wmcApp::m_CvPomProgrammingFromPowerOn    = false;
 bool wmcApp::m_EmergencyStopEnabled           = false;
 uint8_t wmcApp::m_ButtonIndexPrevious         = 0;
+bool wmcApp::m_WifiConfigShouldSaved          = false;
 
 uint8_t wmcApp::m_locFunctionAssignment[5];
 
@@ -121,11 +122,51 @@ class stateInit : public wmcApp
 class stateSetUpWifi : public wmcApp
 {
     /**
+     * Callback for notifying us of the need to save config.
+     */
+    static void saveConfigCallback () {
+        Serial.println ("saveConfigCallback");
+        m_WifiConfigShouldSaved = true;
+    }
+
+    /**
      * Gets called when WiFiManager enters configuration mode
      */
     static void enterWifiConfigMode (WiFiManager *wifiManager) {
-        Serial.print ("AP-Config-Mode active");
         m_wmcTft.ShowWifiConfigMode();
+    }
+
+    /**
+     * Convert and validate IP-Address from String to unit8_t array[4]
+     */
+    bool getIpFromParams(const char *Source, uint8_t* TargetPtr)
+    {
+        char* Dot;
+        bool Result   = true;
+        uint8_t Index = 0;
+
+        /* s(s)canf is not present, so get digits by locating the dot and getting value from the dot location with
+         * atoi function. */
+
+        TargetPtr[0] = atoi(Source);
+        Dot          = const_cast<char*>(Source);
+
+        while ((Index < 3) && (Dot != NULL))
+        {
+            Dot = strchr(Dot, '.');
+            if (Dot != NULL)
+            {
+                Dot++;
+                TargetPtr[1 + Index] = atoi(Dot);
+                Index++;
+            }
+            else
+            {
+                Result = false;
+            }
+        }
+
+        return (Result);
     }
 
     /**
@@ -145,24 +186,59 @@ class stateSetUpWifi : public wmcApp
         m_wmcTft.UpdateStatus("CONNECTING TO WIFI", true, WmcTft::color_yellow);
         m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
 
-        // set host name
-        String hostname = DEVICE_NAME_PREFIX + String(ESP.getChipId());
+        // Extra parameters for configuration Z21-Central IP-Address
+        String customZ21IpAdditionalHtml = FPSTR(CUSTOM_FIELD_HTML_TYPE);
+        customZ21IpAdditionalHtml += FPSTR(CUSTOM_FIELD_HTML_REQUIRED);
+        customZ21IpAdditionalHtml += FPSTR(CUSTOM_FIELD_HTML_PATTERN);
+        WiFiManagerParameter customZ21Ip ("z21", "Central (Z21) IP-Address", "", 16, customZ21IpAdditionalHtml.c_str());
 
-        WiFiManager wifiManager;                                    // WiFiManager local initialization. Not needed later
+        // Extra parameters for configuration Static IP-Address
+        String customUseStaticAdditionalHtml = FPSTR(CUSTOM_FIELD_HTML_STATIC);
+        WiFiManagerParameter customUseStatic ("static", "", "1", 1, customUseStaticAdditionalHtml.c_str());
+
+        String customIpAdditionalHtml = FPSTR(CUSTOM_FIELD_HTML_TYPE);
+        customIpAdditionalHtml += FPSTR(CUSTOM_FIELD_HTML_REQUIRED);
+        customIpAdditionalHtml += FPSTR(CUSTOM_FIELD_HTML_DISABLED);
+        customIpAdditionalHtml += FPSTR(CUSTOM_FIELD_HTML_CLASS_S);
+        customIpAdditionalHtml += FPSTR(CUSTOM_FIELD_HTML_PATTERN);
+        WiFiManagerParameter customIp ("ip", "Static IP-Address", "", 16, customIpAdditionalHtml.c_str());
+        WiFiManagerParameter customGw ("gw", "Static Gateway", "", 16, customIpAdditionalHtml.c_str());
+        WiFiManagerParameter customSn ("sn", "Static Subnet", "", 16,customIpAdditionalHtml.c_str());
+
+        // WiFiManager local initialization. Not needed later
+        WiFiManager wifiManager;
+
+        // Add some custom css and js code to head
+        String customHeadElement = FPSTR(CUSTOM_HTML_HEAD);
+        wifiManager.setCustomHeadElement(customHeadElement.c_str());
 
         wifiManager.setDebugOutput(false);                          // disable debug output
         wifiManager.setAPCallback(enterWifiConfigMode);             // Set callback that gets called when enters access point mode
+        wifiManager.setSaveConfigCallback(saveConfigCallback);      // Set callback that gets called when save settings
 
-        /**
-         * Reset settings - for testing
-         */
-//      wifiManager.resetSettings();
-        Serial.print("setConfigPortalTimeout");
+        //add all your parameters here
+        wifiManager.addParameter(&customZ21Ip);
+        wifiManager.addParameter(&customUseStatic);
+        wifiManager.addParameter(&customIp);
+        wifiManager.addParameter(&customGw);
+        wifiManager.addParameter(&customSn);
+
+        if (digitalRead(PIN_KEYBOARD_C1) == 0) {
+            /**
+             * Reset settings - for testing
+             */
+            wifiManager.resetSettings();
+            Serial.print("wifiManager.resetSettings");
+        }
+
         /**
          * Sets timeout until configuration portal gets turned off
          * useful to make it all retry or go to sleep in seconds.
          */
         wifiManager.setConfigPortalTimeout(120);
+
+        // we used the hostname for AP SSID
+        String hostname = DEVICE_NAME_PREFIX + String(ESP.getChipId());
 
         /**
          * Fetches SSID and password and try to connect to stored access point.
@@ -180,24 +256,29 @@ class stateSetUpWifi : public wmcApp
 
         WiFi.hostname(hostname.c_str());                            // Set the wifi host name ?
 
-        /* Get IP data. */
-        EEPROM.get(EepCfg::EepIpSubnet, m_IpSubnet);
-        EEPROM.get(EepCfg::EepIpGateway, m_IpGateway);
-        EEPROM.get(EepCfg::EepIpAddressWmc, m_IpAddresWmc);
-        EEPROM.get(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
-        StaticIp = EEPROM.read(EepCfg::StaticIpAddress);
+        //save the custom parameters to FS
+        if (m_WifiConfigShouldSaved) {
+            String z21Ip = customZ21Ip.getValue();
+            if (getIpFromParams(z21Ip.c_str(), m_IpAddresZ21) == true) {
+                EEPROM.put(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
+                EEPROM.commit();
+            }
+
+            m_WifiConfigShouldSaved = false;
+        } else {
+            EEPROM.get(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
+        }
+
+        Serial.print("Z21-IP: " + m_IpAddresZ21[0]);
+        Serial.print("." + m_IpAddresZ21[1]);
+        Serial.print("." + m_IpAddresZ21[2]);
+        Serial.println("." + m_IpAddresZ21[3]);
+
+        Serial.println("IP : " + WiFi.localIP());
+        Serial.println("GW : " + WiFi.gatewayIP());
+        Serial.println("SN : " + WiFi.subnetMask());
 
         m_wmcTft.ShowNetworkName(WiFi.SSID().c_str());
-
-        /* If static IP active set fixed IP settings for static IP. */
-        if (StaticIp == 1)
-        {
-            IPAddress ip(m_IpAddresWmc[0], m_IpAddresWmc[1], m_IpAddresWmc[2], m_IpAddresWmc[3]);
-            IPAddress gateway(m_IpGateway[0], m_IpGateway[1], m_IpGateway[2], m_IpGateway[3]);
-            IPAddress subnet(m_IpSubnet[0], m_IpSubnet[1], m_IpSubnet[2], m_IpSubnet[3]);
-
-            WiFi.config(ip, gateway, subnet);
-        }
     };
 
     /**
@@ -1284,7 +1365,8 @@ class stateMainMenu2 : public wmcApp
             m_LocStorage.AcOptionSet(0);
             m_LocStorage.NumberOfLocsSet(1);
             m_LocStorage.EmergencyOptionSet(0);
-            m_WmcCommandLine.IpSettingsDefault();
+            WiFiManager wifiManager;
+            wifiManager.resetSettings();
             m_wmcTft.Clear();
             m_wmcTft.CommandLine();
             while (1)

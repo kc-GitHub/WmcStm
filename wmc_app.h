@@ -20,6 +20,14 @@
 #include <WiFiUdp.h>
 #include <tinyfsm.hpp>
 
+const char CUSTOM_HTML_HEAD[] PROGMEM         = "<style>form[action=\"/r\"]{display:none}a{color: #333;}div[style] div{background-color:#F8F8F8;padding:7px 15px;}.c{display:none}</style><script>function h(t){e=document.getElementsByClassName('s');Array.prototype.filter.call(e,function(e){a='disabled';if(t.checked){e.removeAttribute(a)}else{e.setAttribute(a,a)}})}</script>";
+const char CUSTOM_FIELD_HTML_STATIC[] PROGMEM   = "type=\"checkbox\" style=\"width:auto;margin:20px 0 10px 0;\" onClick=\"h(this)\"><label for=\"static\"> Use static IP if wanted.</label";
+const char CUSTOM_FIELD_HTML_TYPE[] PROGMEM     = " type=\"text\" autocomplete=\"off\"";
+const char CUSTOM_FIELD_HTML_REQUIRED[] PROGMEM = " required=\"required\"";
+const char CUSTOM_FIELD_HTML_DISABLED[] PROGMEM = " disabled=\"disabled\"";
+const char CUSTOM_FIELD_HTML_CLASS_S[] PROGMEM  = " class=\"s\"";
+const char CUSTOM_FIELD_HTML_PATTERN[] PROGMEM = " pattern=\"\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\"";
+
 /***********************************************************************************************************************
  * T Y P E D  E F S  /  E N U M
  **********************************************************************************************************************/
@@ -109,6 +117,7 @@ protected:
     static uint16_t m_AdcButtonValue[ADC_VALUES_ARRAY_SIZE];
     static uint16_t m_AdcButtonValuePrevious;
     static uint8_t m_AdcIndex;
+    static bool m_WifiConfigShouldSaved;
 
     static pushButtonsEvent m_wmcPushButtonEvent;
 
