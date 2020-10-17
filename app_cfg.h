@@ -67,4 +67,6 @@
 #define KEYCODE_8               17
 #define KEYCODE_9               8
 
+#define MAX_FUNCTION_BUTTONS    10  // Maximum count of usable function buttons inclusive light (0)
+
 #endif

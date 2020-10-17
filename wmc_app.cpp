@@ -89,7 +89,7 @@ bool wmcApp::m_EmergencyStopEnabled           = false;
 uint8_t wmcApp::m_ButtonIndexPrevious         = 0;
 bool wmcApp::m_WifiConfigShouldSaved          = false;
 
-uint8_t wmcApp::m_locFunctionAssignment[5];
+uint8_t wmcApp::m_locFunctionAssignment[MAX_FUNCTION_BUTTONS];
 
 pushButtonsEvent wmcApp::m_wmcPushButtonEvent;
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
@@ -555,9 +555,6 @@ class stateInitLocInfoGet : public wmcApp
  */
 class statePowerOff : public wmcApp
 {
-    uint8_t Index                    = 0;
-    uint8_t locFunctionAssignment[5] = { 0, 1, 2, 3, 4 };
-
     /**
      * Update status row.
      */
@@ -602,6 +599,12 @@ class statePowerOff : public wmcApp
             /* If loc not present store it. */
             if (m_locLib.CheckLoc(m_WmcLocLibInfo->Address) == 255)
             {
+                uint8_t locFunctionAssignment[MAX_FUNCTION_BUTTONS];
+                for (uint8_t Index = 0; Index < MAX_FUNCTION_BUTTONS; Index++)
+                {
+                    locFunctionAssignment[Index] = Index;
+                }
+
                 m_locLib.StoreLoc(m_WmcLocLibInfo->Address, locFunctionAssignment, m_WmcLocLibInfo->NameStr,
                     LocLib::storeAddNoAutoSelect);
                 m_wmcTft.UpdateSelectedAndNumberOfLocs(
@@ -1494,7 +1497,7 @@ class stateMenuLocFunctionsAdd : public wmcApp
 
         m_wmcTft.UpdateStatus("FUNCTIONS", true, WmcTft::color_green);
         m_locFunctionAdd = 0;
-        for (Index = 0; Index < 5; Index++)
+        for (Index = 0; Index < MAX_FUNCTION_BUTTONS; Index++)
         {
             m_locFunctionAssignment[Index] = Index;
         }
@@ -1604,7 +1607,7 @@ class stateMenuLocFunctionsChange : public wmcApp
         m_wmcTft.FunctionAddUpdate(m_locFunctionChange);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
 
-        for (Index = 0; Index < 5; Index++)
+        for (Index = 0; Index < MAX_FUNCTION_BUTTONS; Index++)
         {
             m_locFunctionAssignment[Index] = m_locLib.FunctionAssignedGet(Index);
             m_wmcTft.UpdateFunction(Index, m_locFunctionAssignment[Index]);
@@ -1649,7 +1652,7 @@ class stateMenuLocFunctionsChange : public wmcApp
             m_locAddressChange = m_locLib.GetNextLoc(e.Delta);
             m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
 
-            for (Index = 0; Index < 5; Index++)
+            for (Index = 0; Index < MAX_FUNCTION_BUTTONS; Index++)
             {
                 m_locFunctionAssignment[Index] = m_locLib.FunctionAssignedGet(Index);
                 m_wmcTft.UpdateFunction(Index, m_locFunctionAssignment[Index]);
@@ -2205,7 +2208,7 @@ bool wmcApp::updateLocInfoOnScreen(bool updateAll)
         case Z21Slave::locDecoderSpeedStepsUnknown: m_locLib.DecoderStepsUpdate(decoderStep28); break;
         }
 
-        for (Index = 0; Index < 5; Index++)
+        for (Index = 0; Index < MAX_FUNCTION_BUTTONS; Index++)
         {
             m_locFunctionAssignment[Index] = m_locLib.FunctionAssignedGet(Index);
         }
