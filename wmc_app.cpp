@@ -1368,8 +1368,6 @@ class stateMainMenu2 : public wmcApp
             m_LocStorage.AcOptionSet(0);
             m_LocStorage.NumberOfLocsSet(1);
             m_LocStorage.EmergencyOptionSet(0);
-            WiFiManager wifiManager;
-            wifiManager.resetSettings();
             m_wmcTft.Clear();
             m_wmcTft.CommandLine();
             while (1)
