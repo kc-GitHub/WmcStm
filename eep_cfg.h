@@ -17,7 +17,7 @@
 class EepCfg
 {
 public:
-    static const uint8_t EepromVersion = 6; /* Version of data in EEPROM. */
+    static const uint8_t EepromVersion = 7; /* Version of data in EEPROM. */
 
     static const int EepromVersionAddress         = 1;   /* EEPROM address version info. */
     static const int AcTypeControlAddress         = 2;   /* EEPROM address for "AC" type control */
