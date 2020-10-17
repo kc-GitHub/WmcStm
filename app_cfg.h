@@ -44,6 +44,9 @@
 
 #define ENABLE_SERIAL_DEBUG     0 // Set to 1 to enable serial debug
 
+#define TFT_WIDTH               240
+#define TFT_HEIGHT              240
+
 #define PIN_KEYBOARD_C0         2 // D4 on WEMOS D1 Mini
 #define PIN_KEYBOARD_C1         0 // D3 on WEMOS D1 Mini
 #define PIN_KEYBOARD_C2         3 // RX on WEMOS D1 Mini
