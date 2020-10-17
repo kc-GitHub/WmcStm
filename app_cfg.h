@@ -46,6 +46,7 @@
 
 #define TFT_WIDTH               240
 #define TFT_HEIGHT              240
+#define FUNCTION_BUTTON_SIZE    25
 
 #define PIN_KEYBOARD_C0         2 // D4 on WEMOS D1 Mini
 #define PIN_KEYBOARD_C1         0 // D3 on WEMOS D1 Mini
