@@ -103,7 +103,7 @@ protected:
     static byte m_WmcPacketBuffer[40];
     static uint8_t m_locFunctionAdd;
     static uint8_t m_locFunctionChange;
-    static uint8_t m_locFunctionAssignment[10];
+    static uint8_t m_locFunctionAssignment[MAX_FUNCTION_BUTTONS];
     static Z21Slave::locInfo m_WmcLocInfoControl;
     static Z21Slave::locInfo* m_WmcLocInfoReceived;
     static Z21Slave::locLibData* m_WmcLocLibInfo;
