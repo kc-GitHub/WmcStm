@@ -125,7 +125,6 @@ class stateSetUpWifi : public wmcApp
      * Callback for notifying us of the need to save config.
      */
     static void saveConfigCallback () {
-        Serial.println ("saveConfigCallback");
         m_WifiConfigShouldSaved = true;
     }
 
@@ -228,7 +227,6 @@ class stateSetUpWifi : public wmcApp
              * Reset settings - for testing
              */
             wifiManager.resetSettings();
-            Serial.print("wifiManager.resetSettings");
         }
 
         /**
@@ -268,15 +266,6 @@ class stateSetUpWifi : public wmcApp
         } else {
             EEPROM.get(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
         }
-
-        Serial.print("Z21-IP: " + m_IpAddresZ21[0]);
-        Serial.print("." + m_IpAddresZ21[1]);
-        Serial.print("." + m_IpAddresZ21[2]);
-        Serial.println("." + m_IpAddresZ21[3]);
-
-        Serial.println("IP : " + WiFi.localIP());
-        Serial.println("GW : " + WiFi.gatewayIP());
-        Serial.println("SN : " + WiFi.subnetMask());
 
         m_wmcTft.ShowNetworkName(WiFi.SSID().c_str());
     };
