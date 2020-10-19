@@ -68,6 +68,7 @@ protected:
     void convertLocDataToDisplayData(Z21Slave::locInfo* Z21DataPtr, WmcTft::locoInfo* TftDataPtr);
     bool updateLocInfoOnScreen(bool updateAll);
     void PrepareLanXSetLocoDriveAndTransmit(uint16_t Speed);
+    uint8_t getFunctionFromButton(pushButtons button);
 
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_WIFI = 200;
     static const uint8_t CONNECT_CNT_MAX_FAIL_CONNECT_UDP  = 200;

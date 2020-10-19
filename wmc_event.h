@@ -11,6 +11,7 @@
  * I N C L U D E S
  **********************************************************************************************************************/
 #include <tinyfsm.hpp>
+#include <app_cfg.h>
 
 /***********************************************************************************************************************
  * T Y P E D  E F S  /  E N U M
@@ -29,18 +30,27 @@ enum pulseSwitchStatus
 };
 
 /**
- * Definitions for the push buttons.
+ * Definitions for the push buttons and mapping to key codes of the key pad matrix
  */
 enum pushButtons
 {
-    button_0 = 0,
-    button_1,
-    button_2,
-    button_3,
-    button_4,
-    button_5,
-    button_power,
-    button_none
+    button_0        = KEYCODE_0,
+    button_1        = KEYCODE_1,
+    button_2        = KEYCODE_2,
+    button_3        = KEYCODE_3,
+    button_4        = KEYCODE_4,
+    button_5        = KEYCODE_5,
+    button_6        = KEYCODE_6,
+    button_7        = KEYCODE_7,
+    button_8        = KEYCODE_8,
+    button_9        = KEYCODE_9,
+    button_left     = KEYCODE_LEFT,
+    button_right    = KEYCODE_RIGHT,
+    button_power    = KEYCODE_POWER,
+    button_menu     = KEYCODE_MENU,
+    button_mode     = KEYCODE_MODE,
+    button_encoder  = KEYCODE_ENCODER_BTN,
+    button_none     = 0
 };
 
 /**
