@@ -53,13 +53,15 @@
 
 #define TFT_WIDTH               240
 #define TFT_HEIGHT              240
-#define FUNCTION_BUTTON_SIZE    25
 
 #define PIN_KEYBOARD_C0         2 // D4 on WEMOS D1 Mini
 #define PIN_KEYBOARD_C1         0 // D3 on WEMOS D1 Mini
 #define PIN_KEYBOARD_C2         3 // RX on WEMOS D1 Mini
 #define PIN_KEYBOARD_C3         1 // TX on WEMOS D1 Mini
-#define KEYBOARD_SCAN_TIME      60000 //12000 us
+
+#define PIN_ENCODER_A           4 // D2 on WEMOS D1 Mini
+#define PIN_ENCODER_B           5 // D1 on WEMOS D1 Mini
+#define ENC_DEBOUNCE_DELAY_US   500
 
 #define KEYCODE_ENCODER_BTN     132 // the encoder push button is connected to the keypad to save pins
 #define KEYCODE_POWER           68
