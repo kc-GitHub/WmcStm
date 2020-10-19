@@ -32,7 +32,6 @@ class stateInit;
 class stateSetUpWifi;
 class stateInitUdpConnect;
 class stateInitUdpConnectFail;
-class stateSetUpWifiFail;
 class stateInitBroadcast;
 class stateInitStatusGet;
 class stateInitLocInfoGet;
@@ -182,8 +181,8 @@ class stateSetUpWifi : public wmcApp
 
         m_locLib.Init(m_LocStorage);
         m_WmcCommandLine.Init(m_locLib, m_LocStorage);
-        m_wmcTft.UpdateStatus("CONNECTING TO WIFI", true, WmcTft::color_yellow);
-        m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
+        m_wmcTft.UpdateStatus("Connecting to WLAN", true, WmcTft::color_yellow);
+        m_wmcTft.ShowNetworkName(WiFi.SSID().c_str());
 
         // Extra parameters for configuration Z21-Central IP-Address
         String customZ21IpAdditionalHtml = FPSTR(CUSTOM_FIELD_HTML_TYPE);
@@ -267,25 +266,19 @@ class stateSetUpWifi : public wmcApp
             EEPROM.get(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
         }
 
+        m_wmcTft.UpdateStatus("Connecting to WLAN", true, WmcTft::color_yellow);
         m_wmcTft.ShowNetworkName(WiFi.SSID().c_str());
     };
 
     /**
      * Wait for connection or when no connection can be made enter wifi error state.
      */
-    void react(updateEvent500msec const&) override
+    void react(updateEvent100msec const&) override
     {
         if (WiFi.status() != WL_CONNECTED)
         {
             m_ConnectCnt++;
-            if (m_ConnectCnt < CONNECT_CNT_MAX_FAIL_CONNECT_WIFI)
-            {
-                m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
-            }
-            else
-            {
-                transit<stateSetUpWifiFail>();
-            }
+            m_wmcTft.UpdateRunningWheel();
         }
         else
         {
@@ -297,18 +290,6 @@ class stateSetUpWifi : public wmcApp
     /**
      * Avoid sending data.
      */
-    void react(updateEvent3sec const&) override{};
-};
-
-/***********************************************************************************************************************
- * No wifi connection could be made, show error screen.
- */
-class stateSetUpWifiFail : public wmcApp
-{
-    void entry() override { m_wmcTft.WifiConnectFailed(); }
-
-    void react(updateEvent50msec const&) override{};
-    void react(updateEvent500msec const&) override{};
     void react(updateEvent3sec const&) override{};
 };
 
@@ -327,18 +308,17 @@ class stateInitUdpConnect : public wmcApp
         snprintf(IpStr, sizeof(IpStr), "%hu.%hu.%hu.%hu", m_IpAddresZ21[0], m_IpAddresZ21[1], m_IpAddresZ21[2],
             m_IpAddresZ21[3]);
         m_ConnectCnt = 0;
-        m_wmcTft.ClearNetworkName();
-        m_wmcTft.UpdateStatus("CONNECT TO CONTROL", true, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus("Connecting to Central", true, WmcTft::color_yellow);
 
         m_wmcTft.ShowIpAddressToConnectTo(IpStr);
-        m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
+        m_wmcTft.UpdateRunningWheel();
         m_WifiUdp.begin(m_UdpLocalPort);
     }
 
     /**
      * Request status to check connection with control.
      */
-    void react(updateEvent500msec const&) override
+    void react(updateEvent100msec const&) override
     {
         m_ConnectCnt++;
 
@@ -346,7 +326,7 @@ class stateInitUdpConnect : public wmcApp
         {
             m_z21Slave.LanGetStatus();
             WmcCheckForDataTx();
-            m_wmcTft.UpdateRunningWheel(m_ConnectCnt);
+            m_wmcTft.UpdateRunningWheel();
         }
         else
         {
@@ -582,7 +562,7 @@ class statePowerOff : public wmcApp
             /* First database data show status... */
             if (m_WmcLocLibInfo->Actual == 0)
             {
-                m_wmcTft.UpdateStatus("RECEIVING", false, WmcTft::color_white);
+                m_wmcTft.UpdateStatus("Receiving", false, WmcTft::color_white);
             }
 
             /* If loc not present store it. */
@@ -603,7 +583,7 @@ class statePowerOff : public wmcApp
             /* If all locs received sort... */
             if ((m_WmcLocLibInfo->Actual + 1) == m_WmcLocLibInfo->Total)
             {
-                m_wmcTft.UpdateStatus("SORTING  ", false, WmcTft::color_white);
+                m_wmcTft.UpdateStatus("Sorting  ", false, WmcTft::color_white);
                 m_locLib.LocBubbleSort();
                 m_wmcTft.UpdateStatus("POWER OFF", false, WmcTft::color_red);
             }
@@ -946,7 +926,7 @@ class statePowerProgrammingMode : public wmcApp
     void entry() override
     {
         m_locSelection = false;
-        m_wmcTft.UpdateStatus("PROG MODE", false, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus("Program mode", false, WmcTft::color_yellow);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
@@ -997,7 +977,7 @@ class stateTurnoutControl : public wmcApp
     {
         m_TurnOutDirection = Z21Slave::directionOff;
 
-        m_wmcTft.UpdateStatus("TURNOUT", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus("Turnout", true, WmcTft::color_green);
         m_wmcTft.ShowTurnoutScreen();
         m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
         m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
@@ -1162,7 +1142,7 @@ class stateTurnoutControlPowerOff : public wmcApp
      */
     void entry() override
     {
-        m_wmcTft.UpdateStatus("TURNOUT", true, WmcTft::color_red);
+        m_wmcTft.UpdateStatus("Turnout", true, WmcTft::color_red);
         m_TrackPower = powerState::off;
     };
 
@@ -1384,8 +1364,8 @@ class stateMenuLocAdd : public wmcApp
     {
         // Show loc add screen.
         m_wmcTft.Clear();
-        m_wmcTft.UpdateStatus("ADD LOC", true, WmcTft::color_green);
-        m_wmcTft.ShowLocSymbolFw(WmcTft::color_white);
+        m_wmcTft.UpdateStatus("Add Loc", true, WmcTft::color_green);
+        m_wmcTft.ShowLocSymbol(WmcTft::color_white, 1);
         m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
@@ -1482,7 +1462,7 @@ class stateMenuLocFunctionsAdd : public wmcApp
     {
         uint8_t Index;
 
-        m_wmcTft.UpdateStatus("FUNCTIONS", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus("Functions", true, WmcTft::color_green);
         m_locFunctionAdd = 0;
         for (Index = 0; Index < MAX_FUNCTION_BUTTONS; Index++)
         {
@@ -1588,8 +1568,8 @@ class stateMenuLocFunctionsChange : public wmcApp
         m_wmcTft.Clear();
         m_locFunctionChange = 0;
         m_locAddressChange  = m_locLib.GetActualLocAddress();
-        m_wmcTft.UpdateStatus("CHANGE FUNC", true, WmcTft::color_green);
-        m_wmcTft.ShowLocSymbolFw(WmcTft::color_white);
+        m_wmcTft.UpdateStatus("Change Function", true, WmcTft::color_green);
+        m_wmcTft.ShowLocSymbol(WmcTft::color_white, 1);
         m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_green);
         m_wmcTft.FunctionAddUpdate(m_locFunctionChange);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
@@ -1705,8 +1685,8 @@ class stateMenuLocDelete : public wmcApp
     {
         m_wmcTft.Clear();
         m_locAddressDelete = m_locLib.GetActualLocAddress();
-        m_wmcTft.UpdateStatus("DELETE", true, WmcTft::color_green);
-        m_wmcTft.ShowLocSymbolFw(WmcTft::color_white);
+        m_wmcTft.UpdateStatus("Delete", true, WmcTft::color_green);
+        m_wmcTft.ShowLocSymbol(WmcTft::color_white, 1);
         m_wmcTft.ShowlocAddress(m_locAddressDelete, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     }
@@ -1764,7 +1744,7 @@ class stateMenuTransmitLocDatabase : public wmcApp
     {
         m_locDbDataTransmitCnt       = 0;
         m_locDbDataTransmitCntRepeat = 0;
-        m_wmcTft.UpdateStatus("SEND LOC DATA", true, WmcTft::color_white);
+        m_wmcTft.UpdateStatus("Send Loc data", true, WmcTft::color_white);
 
         /* Update status row. */
         m_wmcTft.UpdateTransmitCount(
@@ -1852,7 +1832,7 @@ class stateCommandLineInterfaceActive : public wmcApp
     {
         m_WifiUdp.stop();
         m_wmcTft.Clear();
-        m_wmcTft.UpdateStatus("COMMAND LINE", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus("Command line", true, WmcTft::color_green);
         m_wmcTft.CommandLine();
     };
 };
@@ -1872,12 +1852,12 @@ class stateCvProgramming : public wmcApp
         if (m_CvPomProgramming == false)
         {
             EventCv.EventData = startCv;
-            m_wmcTft.UpdateStatus("CV PROGRAMMING", true, WmcTft::color_green);
+            m_wmcTft.UpdateStatus("CV Programming", true, WmcTft::color_green);
         }
         else
         {
             EventCv.EventData = startPom;
-            m_wmcTft.UpdateStatus("POM PROGRAMMING", true, WmcTft::color_green);
+            m_wmcTft.UpdateStatus("POM Progamming", true, WmcTft::color_green);
             m_z21Slave.LanSetTrackPowerOn();
             WmcCheckForDataTx();
         }
