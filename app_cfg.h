@@ -42,7 +42,14 @@
 
 // Pin definition for TFT was don in User_Setup.h in TFT_eSPI library
 
-#define ENABLE_SERIAL_DEBUG     0 // Set to 1 to enable serial debug
+/**
+ * Set to 1 to enable serial debug
+ * ATTETION!
+ * Serial debug must used with care because on ESP8266 the TX pin is shared with the Col3 pin from keypad.
+ * The encoder push button must not pressed with serial debug is enabled on,
+ * because this can results in an possible sortcut of the TX pin with GND and can damage the TX pin or the whole chip.
+ */
+#define ENABLE_SERIAL_DEBUG     0
 
 #define TFT_WIDTH               240
 #define TFT_HEIGHT              240
