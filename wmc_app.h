@@ -55,6 +55,9 @@ public:
     virtual void entry(void){}; /* entry actions in some states */
     virtual void exit(void){};  /* no exit actions at all */
 
+    virtual void handleLocFunctions(pushButtonsEvent const& e);
+    virtual void handleLocSelect(pushButtonsEvent const& e);
+
     enum powerState
     {
         on = 0,

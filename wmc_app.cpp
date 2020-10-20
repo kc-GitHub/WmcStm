@@ -98,6 +98,38 @@ Z21Slave::locLibData* wmcApp::m_WmcLocLibInfo   = NULL;
   F U N C T I O N S
  **********************************************************************************************************************/
 
+/**
+ * Set loc function depends on Button number
+ */
+void wmcApp::handleLocFunctions(pushButtonsEvent const& e) {
+    uint8_t buttonNumber = getFunctionFromButton(e.Button);
+    uint8_t Function = m_locLib.FunctionAssignedGet(buttonNumber);
+    m_locLib.FunctionToggle(Function);
+    m_z21Slave.LanXSetLocoFunction(m_locLib.GetActualLocAddress(), Function, Z21Slave::toggle);
+    WmcCheckForDataTx();
+}
+
+/**
+ * navigate thru loc store depends on left or right button
+ */
+void wmcApp::handleLocSelect(pushButtonsEvent const& e) {
+    if (e.Button == button_left || e.Button == button_right){
+        if (e.Button == button_left) {
+            /* Select previous loc. */
+            m_locLib.GetNextLoc(-1);
+        } else {
+            /* Select next loc. */
+            m_locLib.GetNextLoc(1);
+        }
+
+        m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
+        WmcCheckForDataTx();
+        m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
+        m_locSelection = true;
+    }
+
+}
+
 class stateInit : public wmcApp
 {
 
@@ -619,23 +651,12 @@ class statePowerOff : public wmcApp
             WmcCheckForDataTx();
             break;
         case button_left:
-            /* Select previous loc. */
-            m_locLib.GetNextLoc(-1);
-            break;
         case button_right:
-            /* Select next loc. */
-            m_locLib.GetNextLoc(1);
+            wmcApp::handleLocSelect(e);
             break;
         case button_menu:
             transit<stateMainMenu>(); break;
         default: break;
-        }
-
-        if (e.Button == button_left || e.Button == button_right){
-            m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
-            WmcCheckForDataTx();
-            m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
-            m_locSelection = true;
         }
     }
 };
@@ -762,18 +783,11 @@ class statePowerOn : public wmcApp
         case button_7:
         case button_8:
         case button_9:
-            Function = m_locLib.FunctionAssignedGet(static_cast<uint8_t>(getFunctionFromButton(e.Button)));
-            m_locLib.FunctionToggle(Function);
-            m_z21Slave.LanXSetLocoFunction(m_locLib.GetActualLocAddress(), Function, Z21Slave::toggle);
-            WmcCheckForDataTx();
+            wmcApp::handleLocFunctions(e);
             break;
         case button_left:
-            /* Select previous loc. */
-            m_locLib.GetNextLoc(-1);
-            break;
         case button_right:
-            /* Select next loc. */
-            m_locLib.GetNextLoc(1);
+            wmcApp::handleLocSelect(e);
             break;
         case button_menu:
             m_CvPomProgramming            = true;
@@ -785,13 +799,6 @@ class statePowerOn : public wmcApp
             transit<stateTurnoutControl>();
             break;
         default: break;
-        }
-
-        if (e.Button == button_left || e.Button == button_right){
-            m_z21Slave.LanXGetLocoInfo(m_locLib.GetActualLocAddress());
-            WmcCheckForDataTx();
-            m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
-            m_locSelection = true;
         }
     };
 };
@@ -880,19 +887,13 @@ class stateEmergencyStop : public wmcApp
         case button_2:
         case button_3:
         case button_4:
-            Function = m_locLib.FunctionAssignedGet(static_cast<uint8_t>(e.Button));
-            m_locLib.FunctionToggle(Function);
-            if (m_locLib.FunctionStatusGet(Function) == LocLib::functionOn)
-            {
-                m_z21Slave.LanXSetLocoFunction(m_locLib.GetActualLocAddress(), Function, Z21Slave::on);
-            }
-            else
-            {
-                m_z21Slave.LanXSetLocoFunction(m_locLib.GetActualLocAddress(), Function, Z21Slave::off);
-            }
-            WmcCheckForDataTx();
-            break;
         case button_5:
+        case button_6:
+        case button_7:
+        case button_8:
+        case button_9:
+            wmcApp::handleLocFunctions(e);
+            break;
         default: break;
         }
     };
