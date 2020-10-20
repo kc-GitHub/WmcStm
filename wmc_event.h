@@ -53,6 +53,15 @@ enum pushButtons
     button_none     = 0
 };
 
+enum confirmationTypes
+{
+    none = 0,
+    deleteWiFiSettings,
+    deleteLocks,
+    deleteAll
+};
+
+
 /**
  * CV programming module events.
  */
@@ -79,7 +88,8 @@ struct pulseSwitchEvent : tinyfsm::Event
  */
 struct pushButtonsEvent : tinyfsm::Event
 {
-    pushButtons Button; /* Button which was pressed. */
+    pushButtons Button;                 /* Button which was pressed. */
+    confirmationTypes ConfirmationType; /* Saves type of confirmation */
 };
 
 /**

@@ -122,6 +122,7 @@ protected:
     static uint16_t m_AdcButtonValuePrevious;
     static uint8_t m_AdcIndex;
     static bool m_WifiConfigShouldSaved;
+    static uint8_t m_ConfirmationTyp;
 
     static pushButtonsEvent m_wmcPushButtonEvent;
 

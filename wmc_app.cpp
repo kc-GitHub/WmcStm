@@ -42,6 +42,7 @@ class statePowerProgrammingMode;
 class stateTurnoutControl;
 class stateTurnoutControlPowerOff;
 class stateMainMenu;
+class stateConfirmatioDialog;
 class stateMenuTransmitLocDatabase;
 class stateMenuLocAdd;
 class stateMenuLocFunctionsAdd;
@@ -88,6 +89,7 @@ uint8_t wmcApp::m_ButtonIndexPrevious         = 0;
 bool wmcApp::m_WifiConfigShouldSaved          = false;
 
 uint8_t wmcApp::m_locFunctionAssignment[MAX_FUNCTION_BUTTONS];
+uint8_t wmcApp::m_ConfirmationTyp             = 0;
 
 pushButtonsEvent wmcApp::m_wmcPushButtonEvent;
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
@@ -1255,38 +1257,76 @@ class stateMainMenu : public wmcApp
             transit<stateMenuTransmitLocDatabase>();
             break;
         case button_8:
-            /* Erase all locomotives and ask user to perform reset. */
-            m_WifiUdp.stop();
-            m_wmcTft.ShowErase();
-            m_locLib.InitialLocStore();
-            m_LocStorage.NumberOfLocsSet(1);
-            m_wmcTft.Clear();
-            m_wmcTft.CommandLine();
-            while (1)
-            {
-            };
+            m_ConfirmationTyp = deleteLocks;
             break;
         case button_9:
-            /* Erase all locs and settings and ask user to perform reset. */
-            m_WifiUdp.stop();
-            m_wmcTft.ShowErase();
-            m_locLib.InitialLocStore();
-            m_LocStorage.AcOptionSet(0);
-            m_LocStorage.NumberOfLocsSet(1);
-            m_LocStorage.EmergencyOptionSet(0);
-            m_wmcTft.Clear();
-            m_wmcTft.CommandLine();
-            while (1)
-            {
-            };
+            m_ConfirmationTyp = deleteWiFiSettings;
             break;
         case button_0:
+            m_ConfirmationTyp = deleteAll;
             break;
         case button_power:
             m_locSelection = true;
-            transit<stateInitStatusGet>();
             break;
         default: break;
+        }
+
+        if (e.Button == button_8 || e.Button == button_9 || e.Button == button_0) {
+            transit<stateConfirmatioDialog>();
+        }
+    };
+};
+
+/***********************************************************************************************************************
+ * Show main menu and handle the request.
+ */
+class stateConfirmatioDialog : public wmcApp
+{
+    /**
+     * Show menu on screen.
+     */
+    void entry() {
+        m_wmcTft.ShowConfirmation(m_ConfirmationTyp);
+    };
+
+    /**
+     * Handle switch events.
+     */
+    void react(pushButtonsEvent const& e) override
+    {
+        if (e.Button == button_1) {
+            m_WifiUdp.stop();
+            m_wmcTft.ShowErase(m_ConfirmationTyp);
+
+            if (m_ConfirmationTyp == deleteWiFiSettings) {
+                // Reset WiFi settings
+                WiFiManager wifiManager;
+                wifiManager.resetSettings();
+            }
+
+            if (m_ConfirmationTyp == deleteLocks) {
+                // Erase all locs
+                m_locLib.InitialLocStore();
+                m_LocStorage.NumberOfLocsSet(1);
+            }
+
+            if (m_ConfirmationTyp == deleteAll) {
+                // Additionaly erase all settings
+                m_LocStorage.AcOptionSet(0);
+                m_LocStorage.EmergencyOptionSet(0);
+                // ToDo Reset Z21 Address
+            }
+
+            // ask user to perform reset.
+            delay(3000);
+            m_wmcTft.Clear();
+            m_wmcTft.CommandLine();
+
+            // Neverending Loop, request Reset
+            while (1);
+
+        } else if (e.Button == button_2) {
+            transit<stateMainMenu>();
         }
     };
 };
