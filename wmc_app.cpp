@@ -90,6 +90,7 @@ bool wmcApp::m_WifiConfigShouldSaved          = false;
 
 uint8_t wmcApp::m_locFunctionAssignment[MAX_FUNCTION_BUTTONS];
 uint8_t wmcApp::m_ConfirmationTyp             = 0;
+bool wmcApp::m_AddressTurnoutReset            = true;
 
 pushButtonsEvent wmcApp::m_wmcPushButtonEvent;
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
@@ -128,6 +129,18 @@ void wmcApp::handleLocSelect(pushButtonsEvent const& e) {
         WmcCheckForDataTx();
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
         m_locSelection = true;
+    }
+}
+
+void wmcApp::handleNumberInput(pushButtons button, uint8_t len, bool reset) {
+    uint8_t buttonNumber = getFunctionFromButton(button);
+
+    String txtNum = String(m_TurnOutAddress);
+    if (txtNum.length() < len && !reset) {
+        txtNum += String(buttonNumber);
+        m_TurnOutAddress = txtNum.toInt();
+    } else {
+        m_TurnOutAddress = buttonNumber;
     }
 }
 
@@ -954,6 +967,7 @@ class stateTurnoutControl : public wmcApp
     void entry() override
     {
         m_TurnOutDirection = Z21Slave::directionOff;
+        m_AddressTurnoutReset = true;
 
         m_wmcTft.UpdateStatus("Turnout", true, WmcTft::color_green);
         m_wmcTft.ShowTurnoutScreen();
@@ -1033,22 +1047,31 @@ class stateTurnoutControl : public wmcApp
             m_z21Slave.LanSetTrackPowerOff();
             WmcCheckForDataTx();
             break;
-        case button_0: m_TurnOutAddress++; break;
-        case button_1: m_TurnOutAddress += 10; break;
-        case button_2: m_TurnOutAddress += 100; break;
-        case button_3: m_TurnOutAddress += 1000; break;
+        case button_0:
+        case button_1:
+        case button_2:
+        case button_3:
         case button_4:
         case button_5:
+        case button_6:
+        case button_7:
+        case button_8:
+        case button_9:
+            wmcApp::handleNumberInput(e.Button, 4, m_AddressTurnoutReset);
+            m_AddressTurnoutReset = false;
+            updateScreen = true;
             break;
         case button_left:
             m_TurnOutDirection = Z21Slave::directionForward;
             updateScreen       = false;
             sentTurnOutCommand = true;
+            m_AddressTurnoutReset = true;
             break;
         case button_right:
             m_TurnOutDirection = Z21Slave::directionTurn;
             updateScreen       = false;
             sentTurnOutCommand = true;
+            m_AddressTurnoutReset = true;
             break;
         case button_mode:
             /* Back to loc control. */

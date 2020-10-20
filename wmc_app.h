@@ -57,6 +57,7 @@ public:
 
     virtual void handleLocFunctions(pushButtonsEvent const& e);
     virtual void handleLocSelect(pushButtonsEvent const& e);
+    virtual void handleNumberInput(pushButtons button, uint8_t len, bool reset);
 
     enum powerState
     {
@@ -123,6 +124,7 @@ protected:
     static uint8_t m_AdcIndex;
     static bool m_WifiConfigShouldSaved;
     static uint8_t m_ConfirmationTyp;
+    static bool m_AddressTurnoutReset;
 
     static pushButtonsEvent m_wmcPushButtonEvent;
 
