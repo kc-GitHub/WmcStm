@@ -129,12 +129,10 @@ void wmcApp::handleLocSelect(pushButtonsEvent const& e) {
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
         m_locSelection = true;
     }
-
 }
 
 class stateInit : public wmcApp
 {
-
     void entry() override
     {
         m_wmcTft.Init();
@@ -960,7 +958,7 @@ class stateTurnoutControl : public wmcApp
         m_wmcTft.UpdateStatus("Turnout", true, WmcTft::color_green);
         m_wmcTft.ShowTurnoutScreen();
         m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
-        m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
+        m_wmcTft.ShowTurnoutSymbol(static_cast<uint8_t>(m_TurnOutDirection));
     };
 
     /**
@@ -982,7 +980,7 @@ class stateTurnoutControl : public wmcApp
                 m_TurnOutDirection = Z21Slave::directionOff;
                 m_z21Slave.LanXSetTurnout(m_TurnOutAddress - 1, m_TurnOutDirection);
                 WmcCheckForDataTx();
-                m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
+                m_wmcTft.ShowTurnoutSymbol(static_cast<uint8_t>(m_TurnOutDirection));
             }
         }
     };
@@ -995,45 +993,20 @@ class stateTurnoutControl : public wmcApp
         bool updateScreen = false;
         switch (e.Status)
         {
-        case pushturn: break;
         case turn:
-            if (e.Delta > 0)
-            {
-                /* Increase address and check for overrrun. */
-                if (m_TurnOutAddress < ADDRESS_TURNOUT_MAX)
-                {
-                    m_TurnOutAddress++;
-                }
-                else
-                {
-                    m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
-                }
-
-                updateScreen = true;
+            updateScreen = true;
+            if (e.Delta > 0) {
+                m_TurnOutAddress = (m_TurnOutAddress < ADDRESS_TURNOUT_MAX) ? (m_TurnOutAddress + e.Delta) : ADDRESS_TURNOUT_MAX;
+            } else {
+                m_TurnOutAddress = (m_TurnOutAddress > ADDRESS_TURNOUT_MIN) ? (m_TurnOutAddress + e.Delta) : ADDRESS_TURNOUT_MIN;
             }
-            else if (e.Delta < 0)
-            {
-                /* Decrease address and handle address 0. */
-                if (m_TurnOutAddress > ADDRESS_TURNOUT_MIN)
-                {
-                    m_TurnOutAddress--;
-                }
-                else
-                {
-                    m_TurnOutAddress = ADDRESS_TURNOUT_MAX;
-                }
-                updateScreen = true;
-            }
-            break;
-        case pushedShort:
-            /* Reset turnout address. */
-            m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
-            updateScreen     = true;
             break;
         case pushedNormal:
         case pushedlong:
-            /* Back to loc control. */
-            transit<stateInitStatusGet>();
+        case pushedShort:
+            // Reset turnout address
+            m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
+            updateScreen     = true;
             break;
         default: break;
         }
@@ -1065,35 +1038,37 @@ class stateTurnoutControl : public wmcApp
         case button_2: m_TurnOutAddress += 100; break;
         case button_3: m_TurnOutAddress += 1000; break;
         case button_4:
+        case button_5:
+            break;
+        case button_left:
             m_TurnOutDirection = Z21Slave::directionForward;
-            m_TurnoutOffDelay  = millis();
             updateScreen       = false;
             sentTurnOutCommand = true;
             break;
-        case button_5:
+        case button_right:
             m_TurnOutDirection = Z21Slave::directionTurn;
-            m_TurnoutOffDelay  = millis();
             updateScreen       = false;
             sentTurnOutCommand = true;
+            break;
+        case button_mode:
+            /* Back to loc control. */
+            transit<stateInitStatusGet>();
             break;
         default: break;
         }
 
         if (updateScreen == true)
         {
-            if (m_TurnOutAddress > ADDRESS_TURNOUT_MAX)
-            {
-                m_TurnOutAddress = 1;
-            }
             m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
         }
 
         if (sentTurnOutCommand == true)
         {
+            m_TurnoutOffDelay  = millis();
             /* Sent command and show turnout direction. */
             m_z21Slave.LanXSetTurnout(m_TurnOutAddress - 1, m_TurnOutDirection);
             WmcCheckForDataTx();
-            m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
+            m_wmcTft.ShowTurnoutSymbol(static_cast<uint8_t>(m_TurnOutDirection));
         }
     };
 
@@ -1107,7 +1082,6 @@ class stateTurnoutControl : public wmcApp
             m_TurnOutDirection = Z21Slave::directionOff;
             m_z21Slave.LanXSetTurnout(m_TurnOutAddress - 1, m_TurnOutDirection);
             WmcCheckForDataTx();
-            m_wmcTft.ShowTurnoutDirection(static_cast<uint8_t>(m_TurnOutDirection));
         }
     }
 };
@@ -1267,6 +1241,7 @@ class stateMainMenu : public wmcApp
             break;
         case button_power:
             m_locSelection = true;
+            transit<stateInitStatusGet>();
             break;
         default: break;
         }
