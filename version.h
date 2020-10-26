@@ -21,9 +21,10 @@
  ******************************************************************************
  */
 
-#define SW_MAJOR 3
-#define SW_MINOR 9
-#define SW_PATCH 9
+#define SW_MAJOR 0
+#define SW_MINOR 1
+#define SW_PATCH 10
+#define SW_BUILD_TIME __DATE__ " / " __TIME__
 
 /*
  ******************************************************************************

@@ -19,6 +19,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <tinyfsm.hpp>
+#include <ArduinoOTA.h>
 
 const char CUSTOM_HTML_HEAD[] PROGMEM         = "<style>form[action=\"/r\"]{display:none}a{color: #333;}div[style] div{background-color:#F8F8F8;padding:7px 15px;}.c{display:none}</style><script>function h(t){e=document.getElementsByClassName('s');Array.prototype.filter.call(e,function(e){a='disabled';if(t.checked){e.removeAttribute(a)}else{e.setAttribute(a,a)}})}</script>";
 const char CUSTOM_FIELD_HTML_STATIC[] PROGMEM   = "type=\"checkbox\" style=\"width:auto;margin:20px 0 10px 0;\" onClick=\"h(this)\"><label for=\"static\"> Use static IP if wanted.</label";
@@ -45,6 +46,7 @@ public:
     virtual void react(cvProgEvent const&);
     virtual void react(cliEnterEvent const&);
     virtual void react(updateEvent3sec const&);
+    virtual void react(powerOffEvent const&);
     virtual void react(pushButtonsEvent const&);
     virtual void react(pulseSwitchEvent const&);
     virtual void react(updateEvent5msec const&);
@@ -57,7 +59,23 @@ public:
 
     virtual void handleLocFunctions(pushButtonsEvent const& e);
     virtual void handleLocSelect(pushButtonsEvent const& e);
-    virtual void handleNumberInput(pushButtons button, uint8_t len, bool reset);
+    virtual uint16_t handleNumberInput(uint16_t address, pushButtons button, uint8_t len);
+
+    static WmcCli m_WmcCommandLine;
+
+    static uint8_t otaUpdateCurrentState;
+    static uint8_t otaUpdateCurrentProgress;
+    static uint8_t otaUpdateCurrentTotal;
+    static ota_error_t otaUpdateLastError;
+
+    enum otaUpdateState
+    {
+        none = 0,
+        start,
+        inProgress,
+        complete,
+        error
+    };
 
     enum powerState
     {
@@ -86,7 +104,6 @@ protected:
     static WmcTft m_wmcTft;
     static LocLib m_locLib;
     static WiFiUDP m_WifiUdp;
-    static WmcCli m_WmcCommandLine;
     static LocStorage m_LocStorage;
     static wmcApp::powerState m_TrackPower;
     static Z21Slave m_z21Slave;
@@ -124,7 +141,7 @@ protected:
     static uint8_t m_AdcIndex;
     static bool m_WifiConfigShouldSaved;
     static uint8_t m_ConfirmationTyp;
-    static bool m_AddressTurnoutReset;
+    static bool m_AddressInputReset;
 
     static pushButtonsEvent m_wmcPushButtonEvent;
 

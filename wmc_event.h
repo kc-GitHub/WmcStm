@@ -55,8 +55,7 @@ enum pushButtons
 
 enum confirmationTypes
 {
-    none = 0,
-    deleteWiFiSettings,
+    deleteWiFiSettings = 0,
     deleteLocks,
     deleteAll
 };
@@ -90,6 +89,13 @@ struct pushButtonsEvent : tinyfsm::Event
 {
     pushButtons Button;                 /* Button which was pressed. */
     confirmationTypes ConfirmationType; /* Saves type of confirmation */
+};
+
+/**
+ * Event for powerOffButton.
+ */
+struct powerOffEvent : tinyfsm::Event
+{
 };
 
 /**

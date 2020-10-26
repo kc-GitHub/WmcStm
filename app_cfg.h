@@ -59,10 +59,15 @@
 #define PIN_KEYBOARD_C2         3 // RX on WEMOS D1 Mini
 #define PIN_KEYBOARD_C3         1 // TX on WEMOS D1 Mini
 
+#define PIN_BATTERY_MEASURE    A0
+#define PIN_POWER_ENABLE       12 // D6 on WEMOS D1 Mini (Set this pin to HIGH to power off the device)
+#define PIN_LCD_BACKLIGHT      15 // D8 on WEMOS D1 Mini (Set this pin to HIGH to power off the device)
+
 #define PIN_ENCODER_A           4 // D2 on WEMOS D1 Mini
 #define PIN_ENCODER_B           5 // D1 on WEMOS D1 Mini
 #define ENC_DEBOUNCE_DELAY_US   500
 
+#define ADC_MULTIER             412 // ADC multiplier (measured voltage in mv at battary * 100 / adc value
 #define KEYCODE_ENCODER_BTN     132 // the encoder push button is connected to the keypad to save pins
 #define KEYCODE_POWER           68
 #define KEYCODE_MENU            36

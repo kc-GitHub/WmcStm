@@ -88,9 +88,15 @@ bool wmcApp::m_EmergencyStopEnabled           = false;
 uint8_t wmcApp::m_ButtonIndexPrevious         = 0;
 bool wmcApp::m_WifiConfigShouldSaved          = false;
 
+uint8_t wmcApp::otaUpdateCurrentState         = 0;
+uint8_t wmcApp::otaUpdateCurrentProgress      = 0;
+uint8_t wmcApp::otaUpdateCurrentTotal         = 0;
+ota_error_t wmcApp::otaUpdateLastError;
+
+
 uint8_t wmcApp::m_locFunctionAssignment[MAX_FUNCTION_BUTTONS];
 uint8_t wmcApp::m_ConfirmationTyp             = 0;
-bool wmcApp::m_AddressTurnoutReset            = true;
+bool wmcApp::m_AddressInputReset              = true;
 
 pushButtonsEvent wmcApp::m_wmcPushButtonEvent;
 Z21Slave::locInfo wmcApp::m_WmcLocInfoControl;
@@ -132,16 +138,20 @@ void wmcApp::handleLocSelect(pushButtonsEvent const& e) {
     }
 }
 
-void wmcApp::handleNumberInput(pushButtons button, uint8_t len, bool reset) {
+uint16_t wmcApp::handleNumberInput(uint16_t address, pushButtons button, uint8_t len) {
     uint8_t buttonNumber = getFunctionFromButton(button);
+    uint16_t returnAddress = address;
 
-    String txtNum = String(m_TurnOutAddress);
-    if (txtNum.length() < len && !reset) {
+    String txtNum = String(returnAddress);
+    if (txtNum.length() < len && !m_AddressInputReset) {
         txtNum += String(buttonNumber);
-        m_TurnOutAddress = txtNum.toInt();
+        returnAddress = txtNum.toInt();
     } else {
-        m_TurnOutAddress = buttonNumber;
+        returnAddress = buttonNumber;
     }
+    wmcApp::m_AddressInputReset = false;
+
+    return returnAddress;
 }
 
 class stateInit : public wmcApp
@@ -220,12 +230,11 @@ class stateSetUpWifi : public wmcApp
 
         /* Init modules. */
         m_wmcTft.ShowName();
-        m_wmcTft.ShowVersion(SW_MAJOR, SW_MINOR, SW_PATCH);
+        m_wmcTft.ShowVersion(SW_MAJOR, SW_MINOR, SW_PATCH, SW_BUILD_TIME);
         m_EmergencyStopEnabled = m_LocStorage.EmergencyOptionGet();
 
         m_locLib.Init(m_LocStorage);
-        m_WmcCommandLine.Init(m_locLib, m_LocStorage);
-        m_wmcTft.UpdateStatus("Connecting to WLAN", true, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_wifiConnect, true, WmcTft::color_yellow);
         m_wmcTft.ShowNetworkName(WiFi.SSID().c_str());
 
         // Extra parameters for configuration Z21-Central IP-Address
@@ -310,8 +319,60 @@ class stateSetUpWifi : public wmcApp
             EEPROM.get(EepCfg::EepIpAddressZ21, m_IpAddresZ21);
         }
 
-        m_wmcTft.UpdateStatus("Connecting to WLAN", true, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_wifiConnect, true, WmcTft::color_yellow);
         m_wmcTft.ShowNetworkName(WiFi.SSID().c_str());
+
+        m_WmcCommandLine.Init(m_locLib, m_LocStorage);
+
+        // Hostname defaults to esp8266-[ChipID]
+        ArduinoOTA.setHostname(hostname.c_str());
+        ArduinoOTA.setRebootOnSuccess(true);
+
+        // No authentication by default
+//        ArduinoOTA.setPassword(String("test0815").c_str());
+
+        ArduinoOTA.onStart([]() { // switch off all the PWMs during upgrade
+            wmcApp::otaUpdateCurrentState = start;
+        });
+
+        ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+            wmcApp::otaUpdateCurrentState = inProgress;
+            wmcApp::otaUpdateCurrentProgress = progress;
+            wmcApp::otaUpdateCurrentTotal = total;
+
+            uint8_t percent = progress / (total / 100);
+            String txtProgress = "Update progress: " + String(percent);
+            m_wmcTft.UpdateStatus(txtProgress, true, WmcTft::color_yellow);
+        });
+
+        ArduinoOTA.onEnd([]() {
+            wmcApp::otaUpdateCurrentState = complete;
+
+            m_wmcTft.UpdateStatus("Update Complete. Wait for power off!", true, WmcTft::color_yellow);
+            delay(3000);
+//            pinMode(PIN_POWER_ENABLE, INPUT);
+        });
+
+        ArduinoOTA.onError([](ota_error_t error) {
+            wmcApp::otaUpdateCurrentState = error;
+            wmcApp::otaUpdateLastError = error;
+/**
+            String txtError = "Error: ";
+            txtError += String(error);
+            if (error == OTA_AUTH_ERROR)         txtError += " (Auth Failed)";
+            else if (error == OTA_BEGIN_ERROR)   txtError += " (Begin Failed)";
+            else if (error == OTA_CONNECT_ERROR) txtError += " (Connect Failed)";
+            else if (error == OTA_RECEIVE_ERROR) txtError += " (Receive Failed)";
+            else if (error == OTA_END_ERROR)     txtError += " (End Failed)";
+
+            for (uint8_t i = 0; i < 100; i++){
+                ArduinoOTA.handle();
+            }
+            delay (10000);
+**/
+        });
+
+        ArduinoOTA.begin();
     };
 
     /**
@@ -352,7 +413,7 @@ class stateInitUdpConnect : public wmcApp
         snprintf(IpStr, sizeof(IpStr), "%hu.%hu.%hu.%hu", m_IpAddresZ21[0], m_IpAddresZ21[1], m_IpAddresZ21[2],
             m_IpAddresZ21[3]);
         m_ConnectCnt = 0;
-        m_wmcTft.UpdateStatus("Connecting to Central", true, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_z21Connect, true, WmcTft::color_yellow);
 
         m_wmcTft.ShowIpAddressToConnectTo(IpStr);
         m_wmcTft.UpdateRunningWheel();
@@ -574,7 +635,7 @@ class statePowerOff : public wmcApp
     void entry() override
     {
         m_locSelection = false;
-        m_wmcTft.UpdateStatus("POWER OFF", false, WmcTft::color_red);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_powerOff, false, WmcTft::color_red);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     }
 
@@ -606,7 +667,7 @@ class statePowerOff : public wmcApp
             /* First database data show status... */
             if (m_WmcLocLibInfo->Actual == 0)
             {
-                m_wmcTft.UpdateStatus("Receiving", false, WmcTft::color_white);
+                m_wmcTft.UpdateStatus(WmcTft::txtStatus_receiving, false, WmcTft::color_white);
             }
 
             /* If loc not present store it. */
@@ -627,9 +688,9 @@ class statePowerOff : public wmcApp
             /* If all locs received sort... */
             if ((m_WmcLocLibInfo->Actual + 1) == m_WmcLocLibInfo->Total)
             {
-                m_wmcTft.UpdateStatus("Sorting  ", false, WmcTft::color_white);
+                m_wmcTft.UpdateStatus(WmcTft::txtStatus_sorting, false, WmcTft::color_white);
                 m_locLib.LocBubbleSort();
-                m_wmcTft.UpdateStatus("POWER OFF", false, WmcTft::color_red);
+                m_wmcTft.UpdateStatus(WmcTft::txtStatus_powerOff, false, WmcTft::color_red);
             }
             break;
         default: break;
@@ -686,7 +747,7 @@ class statePowerOn : public wmcApp
     {
         m_locSelection              = false;
         m_WmcLocSpeedRequestPending = false;
-        m_wmcTft.UpdateStatus("POWER ON", false, WmcTft::color_green);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_powerOn, false, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
@@ -828,7 +889,7 @@ class stateEmergencyStop : public wmcApp
     {
         m_locSelection              = false;
         m_WmcLocSpeedRequestPending = false;
-        m_wmcTft.UpdateStatus("POWER ON", false, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_powerOn, false, WmcTft::color_yellow);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
 
         /* Force speed to zero on screen. */
@@ -923,7 +984,7 @@ class statePowerProgrammingMode : public wmcApp
     void entry() override
     {
         m_locSelection = false;
-        m_wmcTft.UpdateStatus("Program mode", false, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_programMode, false, WmcTft::color_yellow);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
@@ -967,9 +1028,9 @@ class stateTurnoutControl : public wmcApp
     void entry() override
     {
         m_TurnOutDirection = Z21Slave::directionOff;
-        m_AddressTurnoutReset = true;
+        m_AddressInputReset = true;
 
-        m_wmcTft.UpdateStatus("Turnout", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_turnout, true, WmcTft::color_green);
         m_wmcTft.ShowTurnoutScreen();
         m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
         m_wmcTft.ShowTurnoutSymbol(static_cast<uint8_t>(m_TurnOutDirection));
@@ -1057,21 +1118,20 @@ class stateTurnoutControl : public wmcApp
         case button_7:
         case button_8:
         case button_9:
-            wmcApp::handleNumberInput(e.Button, 4, m_AddressTurnoutReset);
-            m_AddressTurnoutReset = false;
+            m_TurnOutAddress = wmcApp::handleNumberInput(m_TurnOutAddress, e.Button, 4);
             updateScreen = true;
             break;
         case button_left:
             m_TurnOutDirection = Z21Slave::directionForward;
             updateScreen       = false;
             sentTurnOutCommand = true;
-            m_AddressTurnoutReset = true;
+            m_AddressInputReset = true;
             break;
         case button_right:
             m_TurnOutDirection = Z21Slave::directionTurn;
             updateScreen       = false;
             sentTurnOutCommand = true;
-            m_AddressTurnoutReset = true;
+            m_AddressInputReset = true;
             break;
         case button_mode:
             /* Back to loc control. */
@@ -1119,7 +1179,7 @@ class stateTurnoutControlPowerOff : public wmcApp
      */
     void entry() override
     {
-        m_wmcTft.UpdateStatus("Turnout", true, WmcTft::color_red);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_turnout, true, WmcTft::color_red);
         m_TrackPower = powerState::off;
     };
 
@@ -1292,7 +1352,7 @@ class stateConfirmatioDialog : public wmcApp
      */
     void react(pushButtonsEvent const& e) override
     {
-        if (e.Button == button_1) {
+        if (e.Button == button_9) {
             m_WifiUdp.stop();
             m_wmcTft.ShowErase(m_ConfirmationTyp);
 
@@ -1323,7 +1383,7 @@ class stateConfirmatioDialog : public wmcApp
             // Neverending Loop, request Reset
             while (1);
 
-        } else if (e.Button == button_2) {
+        } else if (e.Button == button_0) {
             transit<stateMainMenu>();
         }
     };
@@ -1339,9 +1399,11 @@ class stateMenuLocAdd : public wmcApp
      */
     void entry() override
     {
+        m_AddressInputReset = true;
+
         // Show loc add screen.
         m_wmcTft.Clear();
-        m_wmcTft.UpdateStatus("Add Loc", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_addLoc, true, WmcTft::color_green);
         m_wmcTft.ShowLocSymbol(WmcTft::color_white, 1);
         m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
@@ -1396,29 +1458,25 @@ class stateMenuLocAdd : public wmcApp
 
         switch (e.Button)
         {
-        case button_0: m_locAddressAdd++; break;
-        case button_1: m_locAddressAdd += 10; break;
-        case button_2: m_locAddressAdd += 100; break;
-        case button_3: m_locAddressAdd += 1000; break;
-        case button_4: m_locAddressAdd = 1; break;
-        case button_5:
-            /* If loc is not present goto add functions else red address indicating loc already present. */
-            if (m_locLib.CheckLoc(m_locAddressAdd) != 255)
-            {
+            case button_0:
+            case button_1:
+            case button_2:
+            case button_3:
+            case button_4:
+            case button_5:
+            case button_6:
+            case button_7:
+            case button_8:
+            case button_9:
+                m_locAddressAdd = wmcApp::handleNumberInput(m_locAddressAdd, e.Button, 4);
+                updateScreen = true;
+                break;
+            case button_power:
                 updateScreen = false;
-                m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_red);
-            }
-            else
-            {
-                transit<stateMenuLocFunctionsAdd>();
-            }
-            break;
-        case button_power:
-            updateScreen = false;
-            transit<stateMainMenu>();
-            break;
-        case button_none: updateScreen = false; break;
-        default: break;
+                transit<stateMainMenu>();
+                break;
+            case button_none: updateScreen = false; break;
+            default: break;
         }
 
         if (updateScreen == true)
@@ -1441,7 +1499,7 @@ class stateMenuLocFunctionsAdd : public wmcApp
     {
         uint8_t Index;
 
-        m_wmcTft.UpdateStatus("Functions", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_functions, true, WmcTft::color_green);
         m_locFunctionAdd = 0;
         for (Index = 0; Index < MAX_FUNCTION_BUTTONS; Index++)
         {
@@ -1547,7 +1605,7 @@ class stateMenuLocFunctionsChange : public wmcApp
         m_wmcTft.Clear();
         m_locFunctionChange = 0;
         m_locAddressChange  = m_locLib.GetActualLocAddress();
-        m_wmcTft.UpdateStatus("Change Function", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_changeFunction, true, WmcTft::color_green);
         m_wmcTft.ShowLocSymbol(WmcTft::color_white, 1);
         m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_green);
         m_wmcTft.FunctionAddUpdate(m_locFunctionChange);
@@ -1664,7 +1722,7 @@ class stateMenuLocDelete : public wmcApp
     {
         m_wmcTft.Clear();
         m_locAddressDelete = m_locLib.GetActualLocAddress();
-        m_wmcTft.UpdateStatus("Delete", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_statusDelete, true, WmcTft::color_green);
         m_wmcTft.ShowLocSymbol(WmcTft::color_white, 1);
         m_wmcTft.ShowlocAddress(m_locAddressDelete, WmcTft::color_green);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
@@ -1723,7 +1781,7 @@ class stateMenuTransmitLocDatabase : public wmcApp
     {
         m_locDbDataTransmitCnt       = 0;
         m_locDbDataTransmitCntRepeat = 0;
-        m_wmcTft.UpdateStatus("Send Loc data", true, WmcTft::color_white);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_sendLocData, true, WmcTft::color_white);
 
         /* Update status row. */
         m_wmcTft.UpdateTransmitCount(
@@ -1799,7 +1857,7 @@ class stateCommandLineInterfaceActive : public wmcApp
     {
         m_WifiUdp.stop();
         m_wmcTft.Clear();
-        m_wmcTft.UpdateStatus("Command line", true, WmcTft::color_green);
+        m_wmcTft.UpdateStatus(WmcTft::txtStatus_commandLine, true, WmcTft::color_green);
         m_wmcTft.CommandLine();
     };
 };
@@ -1819,12 +1877,12 @@ class stateCvProgramming : public wmcApp
         if (m_CvPomProgramming == false)
         {
             EventCv.EventData = startCv;
-            m_wmcTft.UpdateStatus("CV Programming", true, WmcTft::color_green);
+            m_wmcTft.UpdateStatus(WmcTft::txtStatus_cvProgramming, true, WmcTft::color_green);
         }
         else
         {
             EventCv.EventData = startPom;
-            m_wmcTft.UpdateStatus("POM Progamming", true, WmcTft::color_green);
+            m_wmcTft.UpdateStatus(WmcTft::txtStatus_cvProgramming, true, WmcTft::color_green);
             m_z21Slave.LanSetTrackPowerOn();
             WmcCheckForDataTx();
         }
@@ -1991,10 +2049,22 @@ class stateCvProgramming : public wmcApp
 /***********************************************************************************************************************
  * Default event handlers when not declared in states itself.
  */
+void wmcApp::react(powerOffEvent const&){
+    fsm_list::reset();
+    m_wmcTft.ShowPowerOffMessage();
+    // Power off the device
+    pinMode(PIN_POWER_ENABLE, INPUT_PULLUP);
+    delay(1000);
+};
+
 void wmcApp::react(pulseSwitchEvent const&){};
 void wmcApp::react(pushButtonsEvent const&){};
 void wmcApp::react(updateEvent5msec const&){};
-void wmcApp::react(updateEvent50msec const&) { WmcCheckForDataRx(); };
+void wmcApp::react(updateEvent50msec const&) {
+    WmcCheckForDataRx();
+    ArduinoOTA.handle();
+};
+
 void wmcApp::react(updateEvent100msec const&)
 {
     m_WmcCommandLine.Update();
