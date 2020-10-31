@@ -2064,6 +2064,21 @@ void wmcApp::react(updateEvent100msecDefault const&)
 
 void wmcApp::react(updateEvent3secDefault const&)
 {
+    // update battery symbol
+    float millivolts = analogRead(PIN_BATTERY_MEASURE) * ADC_MULTIER;
+    float batteryVoltage = millivolts / 100000;
+    char buffer[5];
+    snprintf(buffer, sizeof(buffer), "%.2f", batteryVoltage);
+    m_wmcTft.UpdateStatusBattery(buffer);
+
+    // update wifi rssi
+    float rssi = WiFi.RSSI();
+    rssi = isnan(rssi) ? -100.0 : rssi;
+    rssi = min(max(2 * (rssi + 100.0), 0.0), 100.0);
+    m_wmcTft.UpdateStatusWifi(-100);
+
+    // update central station connection status
+    m_wmcTft.UpdateStatusZ21(z21Connected);
 };
 
 void wmcApp::react(updateEvent500msec const&){};
