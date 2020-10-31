@@ -332,23 +332,21 @@ class stateSetUpWifi : public wmcApp
 //        ArduinoOTA.setPassword(String("test0815").c_str());
 
         ArduinoOTA.onStart([]() { // switch off all the PWMs during upgrade
-            wmcApp::otaUpdateCurrentState = start;
+            wmcApp::otaUpdateCurrentState = otaUpdateState::start;
+            m_wmcTft.ShowFirmwareUpdateMessage(0, 0);
         });
 
         ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-            wmcApp::otaUpdateCurrentState = inProgress;
-            wmcApp::otaUpdateCurrentProgress = progress;
-            wmcApp::otaUpdateCurrentTotal = total;
+            wmcApp::otaUpdateCurrentState = otaUpdateState::inProgress;
 
             uint8_t percent = progress / (total / 100);
-            String txtProgress = "Update progress: " + String(percent);
-            m_wmcTft.UpdateStatus(txtProgress, true, WmcTft::color_yellow);
+            m_wmcTft.ShowFirmwareUpdateMessage(1, percent);
         });
 
         ArduinoOTA.onEnd([]() {
             wmcApp::otaUpdateCurrentState = complete;
 
-            m_wmcTft.UpdateStatus("Update Complete. Wait for power off!", true, WmcTft::color_yellow);
+            m_wmcTft.ShowFirmwareUpdateMessage(2, 0);
             delay(3000);
 //            pinMode(PIN_POWER_ENABLE, INPUT);
         });
@@ -356,20 +354,9 @@ class stateSetUpWifi : public wmcApp
         ArduinoOTA.onError([](ota_error_t error) {
             wmcApp::otaUpdateCurrentState = error;
             wmcApp::otaUpdateLastError = error;
-/**
-            String txtError = "Error: ";
-            txtError += String(error);
-            if (error == OTA_AUTH_ERROR)         txtError += " (Auth Failed)";
-            else if (error == OTA_BEGIN_ERROR)   txtError += " (Begin Failed)";
-            else if (error == OTA_CONNECT_ERROR) txtError += " (Connect Failed)";
-            else if (error == OTA_RECEIVE_ERROR) txtError += " (Receive Failed)";
-            else if (error == OTA_END_ERROR)     txtError += " (End Failed)";
 
-            for (uint8_t i = 0; i < 100; i++){
-                ArduinoOTA.handle();
-            }
-            delay (10000);
-**/
+            m_wmcTft.ShowFirmwareUpdateMessage(3 + error, 0);
+            delay(3000);
         });
 
         ArduinoOTA.begin();
@@ -2063,7 +2050,6 @@ void wmcApp::react(pushButtonsEvent const&){};
 void wmcApp::react(updateEvent5msec const&){};
 void wmcApp::react(updateEvent50msec const&) {
     WmcCheckForDataRx();
-    ArduinoOTA.handle();
 };
 
 void wmcApp::react(updateEvent100msec const&)
@@ -2073,6 +2059,7 @@ void wmcApp::react(updateEvent100msec const&)
 
 void wmcApp::react(updateEvent100msecDefault const&)
 {
+    ArduinoOTA.handle();
 };
 
 void wmcApp::react(updateEvent3secDefault const&)
