@@ -120,6 +120,20 @@ struct updateEvent100msec : tinyfsm::Event
 };
 
 /**
+ * 100msec Update event
+ */
+struct updateEvent100msecDefault : tinyfsm::Event
+{
+};
+
+/**
+ * 100msec Update event
+ */
+struct updateEvent3secDefault : tinyfsm::Event
+{
+};
+
+/**
  * 500msec Update event
  */
 struct updateEvent500msec : tinyfsm::Event

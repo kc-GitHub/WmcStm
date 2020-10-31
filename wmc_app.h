@@ -52,6 +52,8 @@ public:
     virtual void react(updateEvent5msec const&);
     virtual void react(updateEvent50msec const&);
     virtual void react(updateEvent100msec const&);
+    virtual void react(updateEvent100msecDefault const&);
+    virtual void react(updateEvent3secDefault const&);
     virtual void react(updateEvent500msec const&);
 
     virtual void entry(void){}; /* entry actions in some states */

@@ -2052,6 +2052,7 @@ class stateCvProgramming : public wmcApp
 void wmcApp::react(powerOffEvent const&){
     fsm_list::reset();
     m_wmcTft.ShowPowerOffMessage();
+
     // Power off the device
     pinMode(PIN_POWER_ENABLE, INPUT_PULLUP);
     delay(1000);
@@ -2068,6 +2069,14 @@ void wmcApp::react(updateEvent50msec const&) {
 void wmcApp::react(updateEvent100msec const&)
 {
     m_WmcCommandLine.Update();
+};
+
+void wmcApp::react(updateEvent100msecDefault const&)
+{
+};
+
+void wmcApp::react(updateEvent3secDefault const&)
+{
 };
 
 void wmcApp::react(updateEvent500msec const&){};
