@@ -31,7 +31,6 @@
 class stateInit;
 class stateSetUpWifi;
 class stateInitUdpConnect;
-class stateInitUdpConnectFail;
 class stateInitBroadcast;
 class stateInitStatusGet;
 class stateInitLocInfoGet;
@@ -87,6 +86,8 @@ bool wmcApp::m_CvPomProgrammingFromPowerOn    = false;
 bool wmcApp::m_EmergencyStopEnabled           = false;
 uint8_t wmcApp::m_ButtonIndexPrevious         = 0;
 bool wmcApp::m_WifiConfigShouldSaved          = false;
+
+uint8_t wmcApp::z21Connected                  = 0;
 
 uint8_t wmcApp::otaUpdateCurrentState         = 0;
 uint8_t wmcApp::otaUpdateCurrentProgress      = 0;
@@ -370,7 +371,6 @@ class stateSetUpWifi : public wmcApp
         if (WiFi.status() != WL_CONNECTED)
         {
             m_ConnectCnt++;
-            m_wmcTft.UpdateRunningWheel();
         }
         else
         {
@@ -395,15 +395,7 @@ class stateInitUdpConnect : public wmcApp
      */
     void entry()
     {
-        char IpStr[20];
-
-        snprintf(IpStr, sizeof(IpStr), "%hu.%hu.%hu.%hu", m_IpAddresZ21[0], m_IpAddresZ21[1], m_IpAddresZ21[2],
-            m_IpAddresZ21[3]);
         m_ConnectCnt = 0;
-        m_wmcTft.UpdateStatus(WmcTft::txtStatus_z21Connect, true, WmcTft::color_yellow);
-
-        m_wmcTft.ShowIpAddressToConnectTo(IpStr);
-        m_wmcTft.UpdateRunningWheel();
         m_WifiUdp.begin(m_UdpLocalPort);
     }
 
@@ -414,15 +406,11 @@ class stateInitUdpConnect : public wmcApp
     {
         m_ConnectCnt++;
 
+        z21Connected = 0;
         if (m_ConnectCnt < CONNECT_CNT_MAX_FAIL_CONNECT_UDP)
         {
             m_z21Slave.LanGetStatus();
             WmcCheckForDataTx();
-            m_wmcTft.UpdateRunningWheel();
-        }
-        else
-        {
-            transit<stateInitUdpConnectFail>();
         }
     };
 
@@ -447,29 +435,6 @@ class stateInitUdpConnect : public wmcApp
 };
 
 /***********************************************************************************************************************
- * No UDP connection to control unit possible.
- */
-class stateInitUdpConnectFail : public wmcApp
-{
-    void entry() override { m_wmcTft.UdpConnectFailed(); }
-
-    /**
-     * Handle the response on the status message of the 3 seconds update event, control device might be enabled
-     * somewhat later.
-     */
-    void react(updateEvent50msec const&) override
-    {
-        switch (WmcCheckForDataRx())
-        {
-        case Z21Slave::trackPowerOff:
-        case Z21Slave::programmingMode:
-        case Z21Slave::trackPowerOn: transit<stateInitBroadcast>(); break;
-        default: break;
-        }
-    };
-};
-
-/***********************************************************************************************************************
  * Sent broadcast message.
  */
 class stateInitBroadcast : public wmcApp
@@ -481,6 +446,7 @@ class stateInitBroadcast : public wmcApp
     {
         m_z21Slave.LanSetBroadCastFlags(1);
         WmcCheckForDataTx();
+        z21Connected = 1;
     };
 
     /**
@@ -2075,7 +2041,7 @@ void wmcApp::react(updateEvent3secDefault const&)
     float rssi = WiFi.RSSI();
     rssi = isnan(rssi) ? -100.0 : rssi;
     rssi = min(max(2 * (rssi + 100.0), 0.0), 100.0);
-    m_wmcTft.UpdateStatusWifi(-100);
+    m_wmcTft.UpdateStatusWifi(rssi);
 
     // update central station connection status
     m_wmcTft.UpdateStatusZ21(z21Connected);

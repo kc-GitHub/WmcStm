@@ -65,6 +65,8 @@ public:
 
     static WmcCli m_WmcCommandLine;
 
+    static uint8_t z21Connected;
+
     static uint8_t otaUpdateCurrentState;
     static uint8_t otaUpdateCurrentProgress;
     static uint8_t otaUpdateCurrentTotal;
