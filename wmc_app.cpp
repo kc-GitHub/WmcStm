@@ -1039,6 +1039,7 @@ class stateTurnoutControl : public wmcApp
             transit<stateInitStatusGet>();
             updateScreen = false;
             break;
+        default: break;
         }
 
         if (sentTurnOutCommand == true)
@@ -1106,7 +1107,22 @@ class stateTurnoutControlPowerOff : public wmcApp
     /**
      * Handle button events.
      */
-    void react(pushButtonsEvent const& e) override {};
+    void react(pushButtonsEvent const& e) override
+    {
+        /* Handle button requests. */
+        switch (e.Button)
+        {
+        case button_mode:
+            /* Back to loc control. */
+            transit<stateInitLocInfoGet>();
+            break;
+        case button_power:
+            m_z21Slave.LanSetTrackPowerOn();
+            WmcCheckForDataTx();
+            break;
+        default: break;
+        }
+    };
 };
 
 /***********************************************************************************************************************
