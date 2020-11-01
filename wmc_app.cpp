@@ -1106,28 +1106,7 @@ class stateTurnoutControlPowerOff : public wmcApp
     /**
      * Handle button events.
      */
-    void react(pushButtonsEvent const& e) override
-    {
-        /* Handle button requests. */
-        switch (e.Button)
-        {
-        case button_encoder:
-            /* Back to loc control. */
-            transit<stateInitLocInfoGet>();
-            break;
-        case button_power:
-            m_z21Slave.LanSetTrackPowerOn();
-            WmcCheckForDataTx();
-            break;
-        case button_0:
-        case button_1:
-        case button_2:
-        case button_3:
-        case button_4:
-        case button_5: break;
-        default: break;
-        }
-    };
+    void react(pushButtonsEvent const& e) override {};
 };
 
 /***********************************************************************************************************************
