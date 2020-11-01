@@ -999,32 +999,6 @@ class stateTurnoutControl : public wmcApp
     };
 
     /**
-     * Handle pulse switch events.
-     */
-    void react(pulseSwitchEvent const& e) override
-    {
-        bool updateScreen = false;
-        switch (e.Status)
-        {
-        case turn:
-            updateScreen = true;
-            if (e.Delta > 0) {
-                m_TurnOutAddress = (m_TurnOutAddress < ADDRESS_TURNOUT_MAX) ? (m_TurnOutAddress + e.Delta) : ADDRESS_TURNOUT_MAX;
-            } else {
-                m_TurnOutAddress = (m_TurnOutAddress > ADDRESS_TURNOUT_MIN) ? (m_TurnOutAddress + e.Delta) : ADDRESS_TURNOUT_MIN;
-            }
-            break;
-        default: break;
-        }
-
-        /* Update address on display if required. */
-        if (updateScreen == true)
-        {
-            m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
-        }
-    };
-
-    /**
      * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
@@ -1035,12 +1009,8 @@ class stateTurnoutControl : public wmcApp
         /* Handle button requests. */
         switch (e.Button)
         {
-        case button_encoder:
-            // Reset turnout address
-            m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
-            updateScreen     = true;
-            break;
         case button_power:
+            updateScreen = false;
             m_z21Slave.LanSetTrackPowerOff();
             WmcCheckForDataTx();
             break;
@@ -1055,25 +1025,31 @@ class stateTurnoutControl : public wmcApp
         case button_8:
         case button_9:
             m_TurnOutAddress = wmcApp::handleNumberInput(m_TurnOutAddress, e.Button, 4);
-            updateScreen = true;
             break;
         case button_left:
-            m_TurnOutDirection = Z21Slave::directionForward;
-            updateScreen       = false;
+            m_TurnOutDirection = Z21Slave::directionTurn;
             sentTurnOutCommand = true;
-            m_AddressInputReset = true;
             break;
         case button_right:
-            m_TurnOutDirection = Z21Slave::directionTurn;
-            updateScreen       = false;
+            m_TurnOutDirection = Z21Slave::directionForward;
             sentTurnOutCommand = true;
-            m_AddressInputReset = true;
             break;
         case button_mode:
             /* Back to loc control. */
             transit<stateInitStatusGet>();
+            updateScreen = false;
             break;
-        default: break;
+        }
+
+        if (sentTurnOutCommand == true)
+        {
+            updateScreen       = false;
+            m_AddressInputReset = true;
+            m_TurnoutOffDelay  = millis();
+            /* Sent command and show turnout direction. */
+            m_z21Slave.LanXSetTurnout(m_TurnOutAddress - 1, m_TurnOutDirection);
+            WmcCheckForDataTx();
+            m_wmcTft.ShowTurnoutSymbol(static_cast<uint8_t>(m_TurnOutDirection));
         }
 
         if (updateScreen == true)
@@ -1081,14 +1057,6 @@ class stateTurnoutControl : public wmcApp
             m_wmcTft.ShowTurnoutAddress(m_TurnOutAddress);
         }
 
-        if (sentTurnOutCommand == true)
-        {
-            m_TurnoutOffDelay  = millis();
-            /* Sent command and show turnout direction. */
-            m_z21Slave.LanXSetTurnout(m_TurnOutAddress - 1, m_TurnOutDirection);
-            WmcCheckForDataTx();
-            m_wmcTft.ShowTurnoutSymbol(static_cast<uint8_t>(m_TurnOutDirection));
-        }
     };
 
     /**
