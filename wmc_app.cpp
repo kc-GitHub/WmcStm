@@ -160,7 +160,7 @@ class stateInit : public wmcApp
     void entry() override
     {
         m_wmcTft.Init();
-        m_wmcTft.Clear();
+        m_wmcTft.Clear(true);
         m_LocStorage.Init();
     };
 
@@ -537,7 +537,7 @@ class stateInitLocInfoGet : public wmcApp
         switch (WmcCheckForDataRx())
         {
         case Z21Slave::locinfo:
-            m_wmcTft.Clear();
+            m_wmcTft.Clear(false);
             if (updateLocInfoOnScreen(true) == true)
             {
                 m_locLib.SpeedUpdate(m_WmcLocInfoReceived->Speed);
@@ -589,7 +589,7 @@ class statePowerOff : public wmcApp
     void entry() override
     {
         m_locSelection = false;
-        m_wmcTft.UpdateStatus(WmcTft::txtStatus_powerOff, false, WmcTft::color_red);
+        m_wmcTft.UpdateStatusPower(0);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     }
 
@@ -644,7 +644,7 @@ class statePowerOff : public wmcApp
             {
                 m_wmcTft.UpdateStatus(WmcTft::txtStatus_sorting, false, WmcTft::color_white);
                 m_locLib.LocBubbleSort();
-                m_wmcTft.UpdateStatus(WmcTft::txtStatus_powerOff, false, WmcTft::color_red);
+                m_wmcTft.UpdateStatusPower(0);
             }
             break;
         default: break;
@@ -701,7 +701,7 @@ class statePowerOn : public wmcApp
     {
         m_locSelection              = false;
         m_WmcLocSpeedRequestPending = false;
-        m_wmcTft.UpdateStatus(WmcTft::txtStatus_powerOn, false, WmcTft::color_green);
+        m_wmcTft.UpdateStatusPower(1);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
     };
 
@@ -820,7 +820,6 @@ class statePowerOn : public wmcApp
             transit<stateCvProgramming>();
             break;
         case button_mode:
-            m_wmcTft.Clear();
             transit<stateTurnoutControl>();
             break;
         default: break;
@@ -840,7 +839,7 @@ class stateEmergencyStop : public wmcApp
     {
         m_locSelection              = false;
         m_WmcLocSpeedRequestPending = false;
-        m_wmcTft.UpdateStatus(WmcTft::txtStatus_powerOn, false, WmcTft::color_yellow);
+        m_wmcTft.UpdateStatusPower(2);
         m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
 
         /* Force speed to zero on screen. */
@@ -1328,7 +1327,6 @@ class stateConfirmatioDialog : public wmcApp
 
             // ask user to perform reset.
             delay(3000);
-            m_wmcTft.Clear();
             m_wmcTft.CommandLine();
 
             // Neverending Loop, request Reset
@@ -1353,7 +1351,7 @@ class stateMenuLocAdd : public wmcApp
         m_AddressInputReset = true;
 
         // Show loc add screen.
-        m_wmcTft.Clear();
+        m_wmcTft.Clear(true);
         m_wmcTft.UpdateStatus(WmcTft::txtStatus_addLoc, true, WmcTft::color_green);
         m_wmcTft.ShowLocSymbol(WmcTft::color_white, 1);
         m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_green);
@@ -1553,7 +1551,7 @@ class stateMenuLocFunctionsChange : public wmcApp
     {
         uint8_t Index;
 
-        m_wmcTft.Clear();
+        m_wmcTft.Clear(true);
         m_locFunctionChange = 0;
         m_locAddressChange  = m_locLib.GetActualLocAddress();
         m_wmcTft.UpdateStatus(WmcTft::txtStatus_changeFunction, true, WmcTft::color_green);
@@ -1671,7 +1669,7 @@ class stateMenuLocDelete : public wmcApp
      */
     void entry() override
     {
-        m_wmcTft.Clear();
+        m_wmcTft.Clear(true);
         m_locAddressDelete = m_locLib.GetActualLocAddress();
         m_wmcTft.UpdateStatus(WmcTft::txtStatus_statusDelete, true, WmcTft::color_green);
         m_wmcTft.ShowLocSymbol(WmcTft::color_white, 1);
@@ -1807,7 +1805,7 @@ class stateCommandLineInterfaceActive : public wmcApp
     void entry() override
     {
         m_WifiUdp.stop();
-        m_wmcTft.Clear();
+        m_wmcTft.Clear(true);
         m_wmcTft.UpdateStatus(WmcTft::txtStatus_commandLine, true, WmcTft::color_green);
         m_wmcTft.CommandLine();
     };
@@ -1824,7 +1822,7 @@ class stateCvProgramming : public wmcApp
     void entry() override
     {
         cvEvent EventCv;
-        m_wmcTft.Clear();
+        m_wmcTft.Clear(true);
         if (m_CvPomProgramming == false)
         {
             EventCv.EventData = startCv;
