@@ -176,7 +176,7 @@ class stateInit : public wmcApp
 class stateSetUpWifi : public wmcApp
 {
     /**
-     * Callback for notifying us of the need to save config.
+     * Callback for notifying us if we need to save config.
      */
     static void saveConfigCallback () {
         m_WifiConfigShouldSaved = true;
@@ -186,6 +186,7 @@ class stateSetUpWifi : public wmcApp
      * Gets called when WiFiManager enters configuration mode
      */
     static void enterWifiConfigMode (WiFiManager *wifiManager) {
+        UNUSED(wifiManager);
         m_wmcTft.ShowWifiConfigMode();
     }
 
@@ -748,8 +749,6 @@ class statePowerOn : public wmcApp
      */
     void react(pulseSwitchEvent const& e) override
     {
-        uint16_t Speed = 0;
-
         switch (e.Status)
         {
         case turn:
@@ -786,7 +785,6 @@ class statePowerOn : public wmcApp
      */
     void react(pushButtonsEvent const& e) override
     {
-        uint8_t Function = 0;
         switch (e.Button)
         {
         case button_power:

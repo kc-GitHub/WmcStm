@@ -29,6 +29,9 @@ const char CUSTOM_FIELD_HTML_DISABLED[] PROGMEM = " disabled=\"disabled\"";
 const char CUSTOM_FIELD_HTML_CLASS_S[] PROGMEM  = " class=\"s\"";
 const char CUSTOM_FIELD_HTML_PATTERN[] PROGMEM = " pattern=\"\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\"";
 
+// Macro for suppress unused parameter compiler warning in c++.
+#define UNUSED(x) (void)(x)
+
 /***********************************************************************************************************************
  * T Y P E D  E F S  /  E N U M
  **********************************************************************************************************************/
@@ -42,6 +45,9 @@ class wmcApp : public tinyfsm::Fsm<wmcApp>
 public:
     /* default reaction for unhandled events */
     void react(tinyfsm::Event const&){};
+
+    // Destructor prevents IDE warning;
+    virtual ~wmcApp() {};
 
     virtual void react(cvProgEvent const&);
     virtual void react(cliEnterEvent const&);
