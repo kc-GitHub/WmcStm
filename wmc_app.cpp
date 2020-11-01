@@ -763,19 +763,6 @@ class statePowerOn : public wmcApp
                 }
             }
             break;
-        case pushedShort:
-            /* Stop or change direction when speed is zero. */
-            Speed = m_locLib.SpeedSet(0);
-            if (Speed != 0xFFFF)
-            {
-                PrepareLanXSetLocoDriveAndTransmit(Speed);
-            }
-            break;
-        case pushedNormal:
-            /* Change direction. */
-            m_locLib.DirectionToggle();
-            PrepareLanXSetLocoDriveAndTransmit(m_locLib.SpeedGet());
-            break;
         default: break;
         }
     };
@@ -785,8 +772,23 @@ class statePowerOn : public wmcApp
      */
     void react(pushButtonsEvent const& e) override
     {
+        uint8_t Speed;
+
         switch (e.Button)
         {
+        case button_encoder:
+            Speed = m_locLib.SpeedGet();
+            if (Speed == 0) {
+                /* Change direction. */
+                m_locLib.DirectionToggle();
+                PrepareLanXSetLocoDriveAndTransmit(m_locLib.SpeedGet());
+            } else {
+                uint16_t Speed = m_locLib.SpeedSet(0);
+                if (Speed != 0xFFFF) {
+                    PrepareLanXSetLocoDriveAndTransmit(Speed);
+                }
+            }
+            break;
         case button_power:
             if (m_EmergencyStopEnabled == false)
             {
@@ -877,31 +879,17 @@ class stateEmergencyStop : public wmcApp
     };
 
     /**
-     * Handle pulse switch events.
-     */
-    void react(pulseSwitchEvent const& e) override
-    {
-        switch (e.Status)
-        {
-        case pushedNormal:
-            /* Change direction. */
-            m_locLib.DirectionToggle();
-            PrepareLanXSetLocoDriveAndTransmit(m_locLib.SpeedGet());
-            break;
-        case pushedShort:
-        case pushedlong: transit<stateMainMenu>(); break;
-        default: break;
-        }
-    };
-
-    /**
      * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
     {
-        uint8_t Function = 0;
         switch (e.Button)
         {
+        case button_encoder:
+            /* Change direction. */
+            m_locLib.DirectionToggle();
+            PrepareLanXSetLocoDriveAndTransmit(m_locLib.SpeedGet());
+            break;
         case button_power:
             m_z21Slave.LanSetTrackPowerOn();
             WmcCheckForDataTx();
@@ -1026,13 +1014,6 @@ class stateTurnoutControl : public wmcApp
                 m_TurnOutAddress = (m_TurnOutAddress > ADDRESS_TURNOUT_MIN) ? (m_TurnOutAddress + e.Delta) : ADDRESS_TURNOUT_MIN;
             }
             break;
-        case pushedNormal:
-        case pushedlong:
-        case pushedShort:
-            // Reset turnout address
-            m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
-            updateScreen     = true;
-            break;
         default: break;
         }
 
@@ -1054,6 +1035,11 @@ class stateTurnoutControl : public wmcApp
         /* Handle button requests. */
         switch (e.Button)
         {
+        case button_encoder:
+            // Reset turnout address
+            m_TurnOutAddress = ADDRESS_TURNOUT_MIN;
+            updateScreen     = true;
+            break;
         case button_power:
             m_z21Slave.LanSetTrackPowerOff();
             WmcCheckForDataTx();
@@ -1150,24 +1136,6 @@ class stateTurnoutControlPowerOff : public wmcApp
     };
 
     /**
-     * Handle pulse switch events.
-     */
-    void react(pulseSwitchEvent const& e) override
-    {
-        switch (e.Status)
-        {
-        case pushturn: break;
-        case turn:
-        case pushedShort: break;
-        case pushedNormal:
-            /* Back to loc control. */
-            transit<stateInitLocInfoGet>();
-            break;
-        default: break;
-        }
-    };
-
-    /**
      * Handle button events.
      */
     void react(pushButtonsEvent const& e) override
@@ -1175,6 +1143,10 @@ class stateTurnoutControlPowerOff : public wmcApp
         /* Handle button requests. */
         switch (e.Button)
         {
+        case button_encoder:
+            /* Back to loc control. */
+            transit<stateInitLocInfoGet>();
+            break;
         case button_power:
             m_z21Slave.LanSetTrackPowerOn();
             WmcCheckForDataTx();
@@ -1203,23 +1175,6 @@ class stateMainMenu : public wmcApp
     };
 
     /**
-     * Handle pulse switch events.
-     */
-    void react(pulseSwitchEvent const& e) override
-    {
-        switch (e.Status)
-        {
-        case pushedShort:
-        case pushedNormal:
-        case pushedlong:
-            m_locSelection = true;
-            transit<stateInitStatusGet>();
-            break;
-        default: break;
-        }
-    }
-
-    /**
      * Handle switch events.
      */
     void react(pushButtonsEvent const& e) override
@@ -1227,6 +1182,10 @@ class stateMainMenu : public wmcApp
         /* Handle menu request. */
         switch (e.Button)
         {
+        case button_encoder:
+            /* Back to loc control. */
+            transit<stateInitLocInfoGet>();
+            break;
         case button_1:
             m_locAddressAdd = m_locLib.GetActualLocAddress();
             transit<stateMenuLocAdd>();
@@ -1380,20 +1339,6 @@ class stateMenuLocAdd : public wmcApp
                 m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_green);
             }
             break;
-        case pushturn: break;
-        case pushedShort:
-        case pushedNormal:
-        case pushedlong:
-            /* If loc is not present goto add functions else red address indicating loc already present. */
-            if (m_locLib.CheckLoc(m_locAddressAdd) != 255)
-            {
-                m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_red);
-            }
-            else
-            {
-                transit<stateMenuLocFunctionsAdd>();
-            }
-            break;
         default: break;
         }
     };
@@ -1406,7 +1351,17 @@ class stateMenuLocAdd : public wmcApp
         bool updateScreen = true;
 
         switch (e.Button)
-        {
+        {   case button_encoder:
+                /* If loc is not present goto add functions else red address indicating loc already present. */
+                if (m_locLib.CheckLoc(m_locAddressAdd) != 255)
+                {
+                    m_wmcTft.ShowlocAddress(m_locAddressAdd, WmcTft::color_red);
+                }
+                else
+                {
+                    transit<stateMenuLocFunctionsAdd>();
+                }
+                break;
             case button_0:
             case button_1:
             case button_2:
@@ -1490,13 +1445,6 @@ class stateMenuLocFunctionsAdd : public wmcApp
                 m_wmcTft.FunctionAddUpdate(m_locFunctionAdd);
             }
             break;
-        case pushedNormal:
-            /* Store loc functions */
-            m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, NULL, LocLib::storeAdd);
-            m_locLib.LocBubbleSort();
-            m_locAddressAdd++;
-            transit<stateMenuLocAdd>();
-            break;
         default: break;
         }
     };
@@ -1508,6 +1456,13 @@ class stateMenuLocFunctionsAdd : public wmcApp
     {
         switch (e.Button)
         {
+        case button_encoder:
+            /* Store loc functions */
+            m_locLib.StoreLoc(m_locAddressAdd, m_locFunctionAssignment, NULL, LocLib::storeAdd);
+            m_locLib.LocBubbleSort();
+            m_locAddressAdd++;
+            transit<stateMenuLocAdd>();
+            break;
         case button_0:
             /* Button 0 only for light or other functions. */
             m_locFunctionAssignment[static_cast<uint8_t>(e.Button)] = m_locFunctionAdd;
@@ -1613,12 +1568,6 @@ class stateMenuLocFunctionsChange : public wmcApp
 
             m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_green);
             break;
-        case pushedNormal:
-        case pushedlong:
-            /* Store changed data and yellow text indicating data is stored. */
-            m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, NULL, LocLib::storeChange);
-            m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_yellow);
-            break;
         default: break;
         }
     };
@@ -1630,6 +1579,11 @@ class stateMenuLocFunctionsChange : public wmcApp
     {
         switch (e.Button)
         {
+        case button_encoder:
+            /* Store changed data and yellow text indicating data is stored. */
+            m_locLib.StoreLoc(m_locAddressChange, m_locFunctionAssignment, NULL, LocLib::storeChange);
+            m_wmcTft.ShowlocAddress(m_locAddressChange, WmcTft::color_yellow);
+            break;
         case button_0:
             /* Button 0 only for light or other functions. */
             m_locFunctionAssignment[static_cast<uint8_t>(e.Button)] = m_locFunctionChange;
@@ -1690,14 +1644,6 @@ class stateMenuLocDelete : public wmcApp
             m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
             m_wmcTft.ShowlocAddress(m_locAddressDelete, WmcTft::color_green);
             break;
-        case pushedNormal:
-        case pushedlong:
-            /* Remove loc. */
-            m_locLib.RemoveLoc(m_locAddressDelete);
-            m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
-            m_locAddressDelete = m_locLib.GetActualLocAddress();
-            m_wmcTft.ShowlocAddress(m_locAddressDelete, WmcTft::color_green);
-            break;
         default: break;
         }
     }
@@ -1709,6 +1655,13 @@ class stateMenuLocDelete : public wmcApp
     {
         switch (e.Button)
         {
+        case button_encoder:
+            /* Remove loc. */
+            m_locLib.RemoveLoc(m_locAddressDelete);
+            m_wmcTft.UpdateSelectedAndNumberOfLocs(m_locLib.GetActualSelectedLocIndex(), m_locLib.GetNumberOfLocs());
+            m_locAddressDelete = m_locLib.GetActualLocAddress();
+            m_wmcTft.ShowlocAddress(m_locAddressDelete, WmcTft::color_green);
+            break;
         case button_0:
         case button_1:
         case button_2:
